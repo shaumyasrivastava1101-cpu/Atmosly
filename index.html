@@ -1,0 +1,2256 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atmosphere Pro — Weather & Radar Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --bg-base: #120826;
+            --bg-secondary: #1e0f3d;
+            --accent-primary: #f59e0b;
+            --accent-secondary: #fb7185;
+            --accent-tertiary: #a855f7;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(24, 12, 48, 0.55);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(216, 180, 254, 0.25);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(251, 146, 60, 0.55);
+        }
+
+        /* Rich Multi-Hue Atmospheric Backdrop */
+        .atmos-backdrop {
+            background-color: #120826;
+            background-image:
+                radial-gradient(circle at 12% 14%, rgba(245, 158, 11, 0.16), transparent 42%),
+                radial-gradient(circle at 86% 18%, rgba(244, 63, 94, 0.16), transparent 45%),
+                radial-gradient(circle at 52% 88%, rgba(16, 185, 129, 0.12), transparent 48%),
+                linear-gradient(155deg, #120826 0%, #1b0c38 48%, #10162f 100%);
+        }
+
+        /* Glassmorphism utility with warm violet-plum & sunset border hints */
+        .glass-panel {
+            background: linear-gradient(145deg, rgba(39, 20, 77, 0.72) 0%, rgba(18, 10, 38, 0.84) 100%);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(251, 191, 36, 0.14);
+            box-shadow: 0 12px 36px 0 rgba(7, 3, 18, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        }
+
+        .glass-card-inner {
+            background: rgba(22, 11, 46, 0.62);
+            border: 1px solid rgba(216, 180, 254, 0.1);
+            transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card-inner:hover {
+            background: rgba(52, 27, 99, 0.72);
+            border-color: rgba(251, 146, 60, 0.42);
+            transform: translateY(-2px);
+        }
+
+        /* Ambient Aurora Orbs */
+        .ambient-glow {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(125px);
+            z-index: -1;
+            pointer-events: none;
+            opacity: 0.52;
+        }
+
+        .fade-update {
+            animation: pulseFade 0.38s ease-out;
+        }
+
+        @keyframes pulseFade {
+            0% { opacity: 0.55; transform: scale(0.99); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Flag badge styling for crisp alignment */
+        .flag-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+        }
+
+        /* Custom select styling */
+        select.glass-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23fbbf24' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.65rem center;
+            background-size: 1rem;
+        }
+        select.glass-select option {
+            background-color: #180b33;
+            color: #f8fafc;
+        }
+    </style>
+</head>
+<body class="atmos-backdrop text-slate-100 font-sans antialiased min-h-screen overflow-x-hidden selection:bg-amber-500/30 selection:text-amber-200">
+
+    <!-- Multi-Hue Ambient Glow Orbs -->
+    <div id="ambientOrb1" class="ambient-glow w-96 h-96 bg-amber-500/25 top-[-6%] left-[12%] transition-colors duration-1000"></div>
+    <div id="ambientOrb2" class="ambient-glow w-[30rem] h-[30rem] bg-fuchsia-600/25 bottom-[-10%] right-[8%] transition-colors duration-1000"></div>
+    <div id="ambientOrb3" class="ambient-glow w-80 h-80 bg-rose-500/20 top-[36%] right-[28%] transition-colors duration-1000"></div>
+
+    <!-- Main App Shell -->
+    <div class="flex flex-col md:flex-row min-h-screen max-w-[1600px] mx-auto p-2 sm:p-4 lg:p-6 gap-4 lg:gap-6">
+
+        <!-- Left Navigation Sidebar (Desktop: Vertical, Mobile: Bottom Bar) -->
+        <aside class="glass-panel rounded-2xl md:w-20 lg:w-24 flex md:flex-col items-center justify-between p-2.5 md:py-6 z-30 order-2 md:order-1 sticky bottom-2 md:top-6 md:h-[calc(100vh-3rem)]">
+            <!-- Brand Logo -->
+            <div class="hidden md:flex flex-col items-center gap-1">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center shadow-lg shadow-rose-500/25">
+                    <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                    </svg>
+                </div>
+                <span class="text-[10px] font-bold tracking-wider text-amber-300/90 uppercase mt-1">Atmos</span>
+            </div>
+
+            <!-- Nav Links -->
+            <nav class="flex md:flex-col items-center justify-around w-full md:w-auto gap-1.5 md:gap-4" id="sidebarNav">
+                <button data-tab="dashboard" class="nav-btn active group flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500/25 to-rose-500/20 text-amber-300 border border-amber-400/35 transition-all">
+                    <svg class="w-5 h-5 mb-1 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span class="text-[10px] font-medium">Weather</span>
+                </button>
+
+                <button data-tab="radar" class="nav-btn group flex flex-col items-center justify-center w-14 h-14 rounded-xl text-purple-200/70 hover:text-white hover:bg-purple-900/50 transition-all">
+                    <svg class="w-5 h-5 mb-1 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    <span class="text-[10px] font-medium">Radar</span>
+                </button>
+
+                <button data-tab="cities" class="nav-btn group flex flex-col items-center justify-center w-14 h-14 rounded-xl text-purple-200/70 hover:text-white hover:bg-purple-900/50 transition-all">
+                    <svg class="w-5 h-5 mb-1 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span class="text-[10px] font-medium">Capitals</span>
+                </button>
+
+                <button data-tab="settings" class="nav-btn group flex flex-col items-center justify-center w-14 h-14 rounded-xl text-purple-200/70 hover:text-white hover:bg-purple-900/50 transition-all">
+                    <svg class="w-5 h-5 mb-1 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span class="text-[10px] font-medium">Settings</span>
+                </button>
+            </nav>
+
+            <!-- Live Sync Status Indicator -->
+            <div class="hidden md:flex flex-col items-center gap-1" id="apiStatusIndicator" title="Live Telemetry Status">
+                <span class="relative flex h-2.5 w-2.5">
+                    <span id="statusPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span id="statusDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                </span>
+                <span id="statusLabel" class="text-[9px] text-emerald-300 font-semibold tracking-wide">LIVE API</span>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col gap-4 lg:gap-6 order-1 md:order-2 min-w-0">
+
+            <!-- Top Header Bar: Cascading Country -> State -> Capital/City + Multi-Trigger Search + Mood & Unit Controls -->
+            <header class="glass-panel rounded-2xl p-3.5 sm:px-5 sm:py-4 flex flex-col gap-3.5 z-20">
+                <!-- Row 1: Country -> State/UT -> Capital/City Dropdowns -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5 items-center">
+                    <!-- 1. Country Selector with Flag -->
+                    <div class="lg:col-span-3 flex flex-col gap-1">
+                        <label for="countrySelect" class="text-[10px] font-semibold uppercase tracking-wider text-amber-200/80 px-1 flex items-center justify-between">
+                            <span>1. Country</span>
+                            <span id="activeCountryFlagPreview" class="flag-badge text-sm">🇮🇳</span>
+                        </label>
+                        <select id="countrySelect" class="glass-select w-full bg-[#1a0c38]/90 border border-purple-400/20 hover:border-amber-400/50 focus:border-amber-400 rounded-xl pl-3 pr-8 py-2 text-xs sm:text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-amber-500/25 transition-all cursor-pointer">
+                        </select>
+                    </div>
+
+                    <!-- 2. State / Union Territory / Province Selector -->
+                    <div class="lg:col-span-4 flex flex-col gap-1">
+                        <label for="stateSelect" id="stateSelectLabel" class="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80 px-1 flex items-center justify-between">
+                            <span>2. State / Union Territory</span>
+                            <span id="stateCountBadge" class="text-[9px] text-rose-300 font-semibold">36 Regions</span>
+                        </label>
+                        <select id="stateSelect" class="glass-select w-full bg-[#1a0c38]/90 border border-purple-400/20 hover:border-amber-400/50 focus:border-amber-400 rounded-xl pl-3 pr-8 py-2 text-xs sm:text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-amber-500/25 transition-all cursor-pointer">
+                        </select>
+                    </div>
+
+                    <!-- 3. Capital & Major City Selector + Mood & °C/°F -->
+                    <div class="lg:col-span-5 flex flex-col gap-1">
+                        <label for="citySelect" class="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80 px-1 flex items-center justify-between">
+                            <span>3. Capital / City</span>
+                            <span id="capitalIndicatorTag" class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-400/35">★ Official Capital</span>
+                        </label>
+                        <div class="flex items-center gap-1.5 sm:gap-2">
+                            <select id="citySelect" class="glass-select flex-1 min-w-0 bg-[#1a0c38]/90 border border-purple-400/20 hover:border-amber-400/50 focus:border-amber-400 rounded-xl pl-3 pr-8 py-2 text-xs sm:text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-amber-500/25 transition-all cursor-pointer">
+                            </select>
+
+                            <!-- Palette Mood Switcher Button -->
+                            <button type="button" id="moodCycleBtn" title="Cycle Color Palette Accent" class="p-2 rounded-xl bg-gradient-to-br from-fuchsia-500/25 to-amber-500/25 hover:from-fuchsia-500/40 hover:to-amber-500/40 text-amber-200 border border-amber-400/30 transition-all active:scale-95 shrink-0">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                </svg>
+                            </button>
+
+                            <!-- Refresh Telemetry Button -->
+                            <button type="button" id="refreshBtn" title="Fetch Fresh Live Data" class="p-2 rounded-xl bg-[#1f103f]/90 hover:bg-purple-900/70 text-purple-200 hover:text-amber-300 border border-purple-400/20 transition-all active:scale-95 shrink-0">
+                                <svg id="refreshIcon" class="w-4 h-4 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </button>
+
+                            <!-- Celsius / Fahrenheit Toggle -->
+                            <div class="flex items-center bg-[#14092b]/95 p-1 rounded-xl border border-purple-400/20 shrink-0">
+                                <button type="button" id="btnCelsius" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow transition-all">°C</button>
+                                <button type="button" id="btnFahrenheit" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-purple-200/70 hover:text-white transition-all">°F</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Guaranteed Working Search Bar (Typing, Dropdown Click, Enter, or Search Button) + Quick Flag Chips -->
+                <div class="flex flex-col gap-2.5 pt-2.5 border-t border-purple-400/15">
+                    <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
+                        <!-- Search Form + Dropdown -->
+                        <div class="relative flex-1 max-w-xl">
+                            <form id="citySearchForm" class="relative flex items-center gap-1.5">
+                                <div class="relative flex-1 flex items-center">
+                                    <svg class="w-4 h-4 text-amber-300/80 absolute left-3 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                    <input
+                                        type="text"
+                                        id="citySearchInput"
+                                        placeholder="Search any city, state, capital, or flag country (e.g. Jaipur, Kochi, Tokyo, Paris)..."
+                                        autocomplete="off"
+                                        class="w-full bg-[#160a2f]/90 border border-purple-400/25 focus:border-amber-400 rounded-xl pl-9 pr-8 py-2 text-xs sm:text-sm text-white placeholder-purple-200/45 focus:outline-none focus:ring-2 focus:ring-amber-500/25 transition-all"
+                                    >
+                                    <button type="button" id="clearSearchBtn" title="Clear search" class="hidden absolute right-2.5 text-purple-200/70 hover:text-white text-base leading-none p-0.5">
+                                        &times;
+                                    </button>
+                                </div>
+                                <button type="submit" id="searchSubmitBtn" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-white font-semibold text-xs shadow-md shadow-rose-500/20 transition-all active:scale-95 shrink-0 cursor-pointer">
+                                    Search
+                                </button>
+                            </form>
+
+                            <!-- Live Search Results Dropdown -->
+                            <div id="searchDropdown" class="hidden absolute left-0 right-0 mt-1.5 bg-[#190c36]/98 backdrop-blur-xl border border-amber-400/30 rounded-xl shadow-2xl overflow-hidden z-50 max-h-72 overflow-y-auto">
+                            </div>
+                        </div>
+
+                        <!-- Recent Searches Strip -->
+                        <div id="recentSearchesBar" class="flex items-center gap-1.5 overflow-x-auto text-[11px]">
+                            <span class="text-purple-200/60 shrink-0 font-medium">Recent:</span>
+                            <div id="recentSearchChips" class="flex items-center gap-1.5"></div>
+                        </div>
+                    </div>
+
+                    <!-- One-Click Quick Flag Pills (States, Capitals & Global Cities) -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5" id="quickCityPills">
+                    </div>
+                </div>
+            </header>
+
+            <!-- VIEW 1: MAIN WEATHER DASHBOARD -->
+            <div id="view-dashboard" class="view-section flex flex-col gap-4 lg:gap-6">
+
+                <!-- Top Grid: Hero Current Weather + Interactive Radar Map -->
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6">
+
+                    <!-- Hero Current Weather Card (7 cols on XL) -->
+                    <section id="heroCard" class="xl:col-span-7 glass-panel rounded-2xl p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden">
+                        <div id="heroCornerGlow" class="absolute -right-12 -top-12 w-52 h-52 bg-amber-500/15 rounded-full blur-2xl pointer-events-none transition-colors duration-700"></div>
+                        <div id="heroCornerGlowSecondary" class="absolute -left-14 -bottom-14 w-52 h-52 bg-fuchsia-500/15 rounded-full blur-2xl pointer-events-none transition-colors duration-700"></div>
+
+                        <!-- Location & Local Time Header -->
+                        <div class="flex flex-wrap items-start justify-between gap-2 relative z-10">
+                            <div>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span id="heroCountryFlag" class="flag-badge text-2xl sm:text-3xl">🇮🇳</span>
+                                    <h1 id="heroCityName" class="text-xl sm:text-2xl font-extrabold tracking-tight text-white">Bhopal, Madhya Pradesh</h1>
+                                    <span id="heroCapitalBadge" class="px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/35">
+                                        ★ State Capital
+                                    </span>
+                                </div>
+                                <p id="heroDateTime" class="text-xs sm:text-sm text-purple-200/75 mt-1">India • Syncing live atmospheric telemetry...</p>
+                            </div>
+                            <span id="heroBadge" class="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500/20 to-rose-500/20 text-amber-200 border border-amber-400/30">
+                                Live Telemetry
+                            </span>
+                        </div>
+
+                        <!-- Main Temperature & Custom SVG Icon Row -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between my-6 gap-4 relative z-10">
+                            <div class="flex items-center gap-4 sm:gap-6">
+                                <div id="heroWeatherIcon" class="w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center shrink-0">
+                                </div>
+                                <div>
+                                    <div class="flex items-start">
+                                        <span id="heroTemp" class="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tighter text-white">--</span>
+                                        <span id="heroTempUnit" class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-300 to-rose-400 bg-clip-text text-transparent mt-1 ml-1">°C</span>
+                                    </div>
+                                    <p id="heroCondition" class="text-base sm:text-lg font-medium text-purple-100 mt-1">Loading condition...</p>
+                                </div>
+                            </div>
+
+                            <!-- Feels Like & High/Low Summary -->
+                            <div class="glass-card-inner rounded-xl p-3.5 sm:text-right flex sm:flex-col justify-between sm:justify-center gap-2">
+                                <div>
+                                    <span class="text-xs text-purple-200/70 block">Feels like</span>
+                                    <span id="heroFeelsLike" class="text-lg font-bold text-white">--°</span>
+                                </div>
+                                <div class="text-xs text-slate-200 flex items-center sm:justify-end gap-2">
+                                    <span class="text-amber-300 font-semibold">H: <span id="heroHigh">--°</span></span>
+                                    <span class="text-purple-400/40">|</span>
+                                    <span class="text-cyan-300 font-semibold">L: <span id="heroLow">--°</span></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Telemetry Metrics Strip -->
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-3 border-t border-purple-300/15 relative z-10">
+                            <div class="glass-card-inner rounded-xl p-2.5">
+                                <div class="flex items-center gap-1.5 text-purple-200/75 text-[11px] mb-1">
+                                    <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                                    <span>Air quality</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <span id="metricAqiDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                    <span id="metricAqi" class="text-sm font-semibold text-white">--</span>
+                                </div>
+                            </div>
+
+                            <div class="glass-card-inner rounded-xl p-2.5">
+                                <div class="flex items-center gap-1.5 text-purple-200/75 text-[11px] mb-1">
+                                    <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                    <span>Wind</span>
+                                </div>
+                                <span id="metricWind" class="text-sm font-semibold text-white">-- km/h</span>
+                            </div>
+
+                            <div class="glass-card-inner rounded-xl p-2.5">
+                                <div class="flex items-center gap-1.5 text-purple-200/75 text-[11px] mb-1">
+                                    <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                                    <span>Humidity</span>
+                                </div>
+                                <span id="metricHumidity" class="text-sm font-semibold text-white">--%</span>
+                            </div>
+
+                            <div class="glass-card-inner rounded-xl p-2.5">
+                                <div class="flex items-center gap-1.5 text-purple-200/75 text-[11px] mb-1">
+                                    <svg class="w-3.5 h-3.5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                    <span>UV Index</span>
+                                </div>
+                                <span id="metricUv" class="text-sm font-semibold text-white">--</span>
+                            </div>
+
+                            <div class="glass-card-inner rounded-xl p-2.5 col-span-2 sm:col-span-1">
+                                <div class="flex items-center gap-1.5 text-purple-200/75 text-[11px] mb-1">
+                                    <svg class="w-3.5 h-3.5 text-fuchsia-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    <span>Visibility</span>
+                                </div>
+                                <span id="metricVisibility" class="text-sm font-semibold text-white">-- km</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Interactive Simulated Weather Radar / Thermal Map Panel (5 cols on XL) -->
+                    <section class="xl:col-span-5 glass-panel rounded-2xl p-4 sm:p-5 flex flex-col justify-between relative overflow-hidden min-h-[300px]">
+                        <div class="flex items-center justify-between gap-2 mb-3 z-10">
+                            <div>
+                                <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                                    <span>Atmospheric Radar</span>
+                                    <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-fuchsia-500/20 text-fuchsia-200 border border-fuchsia-400/25">Live Sim</span>
+                                </h2>
+                                <p id="radarCoords" class="text-[11px] text-purple-200/70">23.2599° N, 77.4126° E</p>
+                            </div>
+
+                            <!-- Radar Layer Switcher -->
+                            <div class="flex items-center bg-[#14092b]/95 p-1 rounded-xl border border-purple-400/20 text-xs">
+                                <button type="button" data-layer="thermal" class="radar-layer-btn active px-2.5 py-1 rounded-lg font-medium bg-amber-500/25 text-amber-200 border border-amber-400/35 transition-all">Thermal</button>
+                                <button type="button" data-layer="precip" class="radar-layer-btn px-2.5 py-1 rounded-lg font-medium text-purple-200/70 hover:text-white transition-all">Rain</button>
+                                <button type="button" data-layer="wind" class="radar-layer-btn px-2.5 py-1 rounded-lg font-medium text-purple-200/70 hover:text-white transition-all">Wind</button>
+                            </div>
+                        </div>
+
+                        <!-- Interactive Canvas Map -->
+                        <div id="radarContainer" class="relative flex-1 w-full rounded-xl overflow-hidden border border-purple-400/20 bg-[#120826] min-h-[200px]">
+                            <canvas id="radarCanvas" class="w-full h-full block"></canvas>
+
+                            <!-- Map Center Pin Overlay -->
+                            <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+                                <div class="relative flex items-center justify-center">
+                                    <span class="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-amber-400/35"></span>
+                                    <div class="px-2.5 py-1 rounded-lg bg-[#14092b]/90 backdrop-blur-md border border-amber-300/35 text-[11px] font-semibold text-white shadow-lg flex items-center gap-1.5">
+                                        <span id="radarCityFlag" class="flag-badge text-xs">🇮🇳</span>
+                                        <span id="radarCityTag">Bhopal</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Legend Overlay -->
+                            <div class="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between bg-[#14092b]/85 backdrop-blur-md px-3 py-1.5 rounded-lg border border-purple-300/15 text-[10px] text-purple-100">
+                                <span id="radarLegendTitle">Thermal Gradient</span>
+                                <div class="flex items-center gap-1.5">
+                                    <span id="radarLegendMin">15°</span>
+                                    <div id="radarLegendBar" class="w-20 h-1.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-amber-400 to-rose-500"></div>
+                                    <span id="radarLegendMax">40°</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Middle Row: Hourly Forecast Strip with Sparkline -->
+                <section class="glass-panel rounded-2xl p-4 sm:p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-base font-bold text-white">Hourly Forecast</h2>
+                            <div class="flex items-center gap-1 bg-[#14092b]/85 p-1 rounded-lg border border-purple-400/20 text-xs">
+                                <button type="button" data-hourly-mode="temp" class="hourly-tab active px-2.5 py-1 rounded-md bg-amber-500/25 text-amber-200 font-medium transition-all">Overview</button>
+                                <button type="button" data-hourly-mode="precip" class="hourly-tab px-2.5 py-1 rounded-md text-purple-200/70 hover:text-white font-medium transition-all">Precipitation</button>
+                                <button type="button" data-hourly-mode="wind" class="hourly-tab px-2.5 py-1 rounded-md text-purple-200/70 hover:text-white font-medium transition-all">Wind</button>
+                            </div>
+                        </div>
+                        <span class="text-xs text-purple-200/70">Next 24 Hours • Scroll horizontally</span>
+                    </div>
+
+                    <div class="overflow-x-auto pb-2" id="hourlyScrollContainer">
+                        <div class="min-w-[820px] relative">
+                            <div id="hourlyCardsGrid" class="grid grid-cols-8 gap-2.5 mb-2">
+                            </div>
+                            <div class="w-full h-14 relative px-6">
+                                <svg id="hourlySparkline" class="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Bottom Grid: 7-Day Forecast Panel + AQI & Sun/Moon Phase Widget -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+
+                    <!-- 7-Day Forecast Panel (7 cols) -->
+                    <section class="lg:col-span-7 glass-panel rounded-2xl p-4 sm:p-5 flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="text-base font-bold text-white">7-Day Forecast</h2>
+                            <span class="text-xs text-purple-200/70">Rain % & Thermal Range</span>
+                        </div>
+                        <div id="weeklyForecastList" class="flex flex-col gap-2">
+                        </div>
+                    </section>
+
+                    <!-- Air Quality Index (AQI) & Sun/Moon Phase Widget (5 cols) -->
+                    <section class="lg:col-span-5 flex flex-col gap-4 lg:gap-6">
+
+                        <!-- Air Quality Index Card -->
+                        <div class="glass-panel rounded-2xl p-4 sm:p-5 flex-1 flex flex-col justify-between">
+                            <div class="flex items-center justify-between mb-2">
+                                <h2 class="text-base font-bold text-white">Air Quality Index</h2>
+                                <span id="aqiBadge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/35">Good</span>
+                            </div>
+
+                            <div class="flex items-center gap-4 my-2">
+                                <div class="text-4xl font-extrabold text-white" id="aqiBigNumber">--</div>
+                                <p id="aqiDescription" class="text-xs text-purple-100/85 leading-relaxed">
+                                    Air quality is satisfactory, and air pollution poses little or no risk.
+                                </p>
+                            </div>
+
+                            <div class="mt-2">
+                                <div class="w-full h-2 rounded-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 relative">
+                                    <div id="aqiMarker" class="w-3.5 h-3.5 rounded-full bg-white border-2 border-[#120826] shadow-md absolute top-1/2 -translate-y-1/2 transition-all duration-500" style="left: 16%;"></div>
+                                </div>
+                                <div class="flex justify-between text-[10px] text-purple-200/65 mt-1.5">
+                                    <span>0 Good</span>
+                                    <span>100 Moderate</span>
+                                    <span>200 Unhealthy</span>
+                                    <span>300+</span>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-purple-300/15 text-center">
+                                <div class="glass-card-inner rounded-lg py-1.5 px-2">
+                                    <span class="text-[10px] text-purple-200/70 block">PM2.5</span>
+                                    <span id="pollutantPm25" class="text-xs font-semibold text-white">--</span>
+                                </div>
+                                <div class="glass-card-inner rounded-lg py-1.5 px-2">
+                                    <span class="text-[10px] text-purple-200/70 block">PM10</span>
+                                    <span id="pollutantPm10" class="text-xs font-semibold text-white">--</span>
+                                </div>
+                                <div class="glass-card-inner rounded-lg py-1.5 px-2">
+                                    <span class="text-[10px] text-purple-200/70 block">O₃ Ozone</span>
+                                    <span id="pollutantO3" class="text-xs font-semibold text-white">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sun & Moon Phase Widget -->
+                        <div class="glass-panel rounded-2xl p-4 sm:p-5 flex-1 flex flex-col justify-between">
+                            <div class="flex items-center justify-between mb-2">
+                                <h2 class="text-base font-bold text-white">Sun & Moon Cycle</h2>
+                                <span id="moonPhaseLabel" class="text-xs text-amber-200 font-medium flex items-center gap-1">
+                                    <span>🌓</span> Waxing Gibbous
+                                </span>
+                            </div>
+
+                            <div class="relative w-full h-24 flex items-center justify-center my-1">
+                                <svg viewBox="0 0 220 95" class="w-full max-w-[260px] h-full overflow-visible">
+                                    <defs>
+                                        <linearGradient id="sunArcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35" />
+                                            <stop offset="50%" stop-color="#fb7185" stop-opacity="1" />
+                                            <stop offset="100%" stop-color="#fbbf24" stop-opacity="0.4" />
+                                        </linearGradient>
+                                    </defs>
+                                    <line x1="10" y1="80" x2="210" y2="80" stroke="rgba(216,180,254,0.22)" stroke-width="1" stroke-dasharray="3 3" />
+                                    <path d="M 20 80 A 90 70 0 0 1 200 80" fill="none" stroke="rgba(216,180,254,0.18)" stroke-width="2" />
+                                    <path id="sunActiveArc" d="M 20 80 A 90 70 0 0 1 150 22" fill="none" stroke="url(#sunArcGrad)" stroke-width="3" stroke-linecap="round" />
+                                    <g id="sunOrb" transform="translate(150, 22)">
+                                        <circle r="10" fill="rgba(251, 191, 36, 0.28)" />
+                                        <circle r="5.5" fill="#fbbf24" />
+                                    </g>
+                                </svg>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs pt-2 border-t border-purple-300/15">
+                                <div>
+                                    <span class="text-purple-200/70 block text-[10px]">Sunrise</span>
+                                    <span id="sunriseTime" class="font-semibold text-amber-300">06:34 AM</span>
+                                </div>
+                                <div class="text-center">
+                                    <span class="text-purple-200/70 block text-[10px]">Daylight</span>
+                                    <span id="daylightDuration" class="font-medium text-white">11h 04m</span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-purple-200/70 block text-[10px]">Sunset</span>
+                                    <span id="sunsetTime" class="font-semibold text-rose-400">05:38 PM</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </section>
+                </div>
+            </div>
+
+            <!-- VIEW 2: EXPANDED RADAR VIEW -->
+            <div id="view-radar" class="view-section hidden flex-col gap-4">
+                <div class="glass-panel rounded-2xl p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                                <span id="fullRadarFlag" class="flag-badge text-xl">🇮🇳</span>
+                                <span>Full-Screen Atmospheric Telemetry Map</span>
+                            </h2>
+                            <p class="text-xs text-purple-200/75">Interactive simulated Doppler radar, thermal contours, and wind vectors.</p>
+                        </div>
+                        <button type="button" onclick="switchTab('dashboard')" class="px-4 py-2 rounded-xl bg-amber-500/20 text-amber-200 border border-amber-400/35 text-xs font-semibold hover:bg-amber-500/30 transition-all">
+                            ← Back to Dashboard
+                        </button>
+                    </div>
+                    <div class="relative w-full h-[460px] rounded-xl overflow-hidden border border-purple-400/20 bg-[#120826]">
+                        <canvas id="fullRadarCanvas" class="w-full h-full block"></canvas>
+                        <div class="absolute top-4 left-4 glass-panel rounded-xl p-3 text-xs space-y-1">
+                            <div class="font-semibold text-white" id="fullRadarCity">Bhopal, Madhya Pradesh</div>
+                            <div class="text-purple-100/85" id="fullRadarStats">Temp: 32°C • Wind: 14 km/h NW</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 3: STATE & NATIONAL CAPITALS DIRECTORY -->
+            <div id="view-cities" class="view-section hidden flex-col gap-4">
+                <div class="glass-panel rounded-2xl p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h2 id="capitalsDirectoryTitle" class="text-xl font-bold text-white">State & Union Territory Capitals</h2>
+                            <p id="capitalsDirectorySubtitle" class="text-xs text-purple-200/75">Click any state capital card to load its live weather & air quality dashboard.</p>
+                        </div>
+                        <button type="button" onclick="switchTab('dashboard')" class="px-4 py-2 rounded-xl bg-amber-500/20 text-amber-200 border border-amber-400/35 text-xs font-semibold hover:bg-amber-500/30 transition-all">
+                            ← Back to Dashboard
+                        </button>
+                    </div>
+                    <div id="citiesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 4: SETTINGS PANEL -->
+            <div id="view-settings" class="view-section hidden flex-col gap-4">
+                <div class="glass-panel rounded-2xl p-5 max-w-2xl">
+                    <h2 class="text-xl font-bold text-white mb-1">Dashboard Preferences</h2>
+                    <p class="text-xs text-purple-200/75 mb-5">Customize units, atmospheric color accents, and auto-refresh.</p>
+
+                    <div class="space-y-4">
+                        <div class="glass-card-inner rounded-xl p-4 flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-semibold text-white">Temperature Scale</div>
+                                <div class="text-xs text-purple-200/70">Switch between Metric (°C) and Imperial (°F)</div>
+                            </div>
+                            <div class="flex items-center bg-[#14092b] p-1 rounded-xl border border-purple-400/20">
+                                <button type="button" onclick="setUnit('C')" id="settingsBtnC" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-500 to-rose-500 text-white">Celsius (°C)</button>
+                                <button type="button" onclick="setUnit('F')" id="settingsBtnF" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-200/70">Fahrenheit (°F)</button>
+                            </div>
+                        </div>
+
+                        <div class="glass-card-inner rounded-xl p-4 flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-semibold text-white">Palette Accent Mood</div>
+                                <div class="text-xs text-purple-200/70">Cycle twilight amber/coral, electric violet/emerald, or solar gold</div>
+                            </div>
+                            <button type="button" onclick="cycleAccentMood()" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-fuchsia-500/30 to-amber-500/30 hover:from-fuchsia-500/45 hover:to-amber-500/45 text-amber-200 border border-amber-400/35 text-xs font-semibold transition-all">
+                                Switch Mood
+                            </button>
+                        </div>
+
+                        <div class="glass-card-inner rounded-xl p-4 flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-semibold text-white">Auto-Refresh Live API Telemetry</div>
+                                <div class="text-xs text-purple-200/70">Automatically sync fresh weather data every 5 minutes</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="autoSimToggle" checked class="sr-only peer">
+                                <div class="w-11 h-6 bg-purple-950 border border-purple-400/25 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Custom Toast Notification Box -->
+    <div id="toastMessage" class="fixed bottom-20 md:bottom-6 right-6 z-50 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 glass-panel px-4 py-2.5 rounded-xl border border-amber-400/40 text-xs font-medium text-amber-100 flex items-center gap-2 shadow-2xl">
+        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+        <span id="toastText">Telemetry updated</span>
+    </div>
+
+    <script>
+        /**
+         * Comprehensive Hierarchical Geo-Directory:
+         * Country -> State / Union Territory / Province -> Official Capital + Major Cities with Lat/Lon & Flags
+         */
+        const WORLD_HIERARCHY = {
+            IN: {
+                name: "India",
+                flag: "🇮🇳",
+                regionLabel: "State / Union Territory",
+                defaultState: "MP",
+                states: {
+                    AP: { name: "Andhra Pradesh", capital: "Amaravati", cities: [{ name: "Amaravati", lat: 16.5131, lon: 80.5165, isCapital: true }, { name: "Visakhapatnam", lat: 17.6868, lon: 83.2185 }, { name: "Vijayawada", lat: 16.5062, lon: 80.6480 }] },
+                    AR: { name: "Arunachal Pradesh", capital: "Itanagar", cities: [{ name: "Itanagar", lat: 27.0844, lon: 93.6053, isCapital: true }, { name: "Tawang", lat: 27.5861, lon: 91.8594 }] },
+                    AS: { name: "Assam", capital: "Dispur", cities: [{ name: "Dispur", lat: 26.1433, lon: 91.7898, isCapital: true }, { name: "Guwahati", lat: 26.1445, lon: 91.7362 }, { name: "Silchar", lat: 24.8333, lon: 92.7789 }] },
+                    BR: { name: "Bihar", capital: "Patna", cities: [{ name: "Patna", lat: 25.5941, lon: 85.1376, isCapital: true }, { name: "Gaya", lat: 24.7914, lon: 85.0002 }, { name: "Muzaffarpur", lat: 26.1209, lon: 85.3647 }] },
+                    CG: { name: "Chhattisgarh", capital: "Raipur", cities: [{ name: "Raipur", lat: 21.2514, lon: 81.6296, isCapital: true }, { name: "Bilaspur", lat: 22.0797, lon: 82.1409 }, { name: "Durg", lat: 21.1904, lon: 81.2849 }] },
+                    GA: { name: "Goa", capital: "Panaji", cities: [{ name: "Panaji", lat: 15.4909, lon: 73.8278, isCapital: true }, { name: "Margao", lat: 15.2832, lon: 73.9862 }] },
+                    GJ: { name: "Gujarat", capital: "Gandhinagar", cities: [{ name: "Gandhinagar", lat: 23.2156, lon: 72.6369, isCapital: true }, { name: "Ahmedabad", lat: 23.0225, lon: 72.5714 }, { name: "Surat", lat: 21.1702, lon: 72.8311 }, { name: "Vadodara", lat: 22.3072, lon: 73.1812 }] },
+                    HR: { name: "Haryana", capital: "Chandigarh", cities: [{ name: "Chandigarh", lat: 30.7333, lon: 76.7794, isCapital: true }, { name: "Gurugram", lat: 28.4595, lon: 77.0266 }, { name: "Faridabad", lat: 28.4089, lon: 77.3178 }] },
+                    HP: { name: "Himachal Pradesh", capital: "Shimla", cities: [{ name: "Shimla", lat: 31.1048, lon: 77.1734, isCapital: true }, { name: "Manali", lat: 32.2432, lon: 77.1892 }, { name: "Dharamshala", lat: 32.2190, lon: 76.3234 }] },
+                    JH: { name: "Jharkhand", capital: "Ranchi", cities: [{ name: "Ranchi", lat: 23.3441, lon: 85.3096, isCapital: true }, { name: "Jamshedpur", lat: 22.8046, lon: 86.2029 }, { name: "Dhanbad", lat: 23.7957, lon: 86.4304 }] },
+                    KA: { name: "Karnataka", capital: "Bengaluru", cities: [{ name: "Bengaluru", lat: 12.9716, lon: 77.5946, isCapital: true }, { name: "Mysuru", lat: 12.2958, lon: 76.6394 }, { name: "Mangaluru", lat: 12.9141, lon: 74.8560 }] },
+                    KL: { name: "Kerala", capital: "Thiruvananthapuram", cities: [{ name: "Thiruvananthapuram", lat: 8.5241, lon: 76.9366, isCapital: true }, { name: "Kochi", lat: 9.9312, lon: 76.2673 }, { name: "Kozhikode", lat: 11.2588, lon: 75.7804 }] },
+                    MP: { name: "Madhya Pradesh", capital: "Bhopal", cities: [{ name: "Bhopal", lat: 23.2599, lon: 77.4126, isCapital: true }, { name: "Indore", lat: 22.7196, lon: 75.8577 }, { name: "Jabalpur", lat: 23.1815, lon: 79.9864 }, { name: "Gwalior", lat: 26.2183, lon: 78.1828 }, { name: "Ujjain", lat: 23.1765, lon: 75.7885 }] },
+                    MH: { name: "Maharashtra", capital: "Mumbai", cities: [{ name: "Mumbai", lat: 19.0760, lon: 72.8777, isCapital: true }, { name: "Pune", lat: 18.5204, lon: 73.8567 }, { name: "Nagpur", lat: 21.1458, lon: 79.0882 }, { name: "Nashik", lat: 19.9975, lon: 73.7898 }] },
+                    MN: { name: "Manipur", capital: "Imphal", cities: [{ name: "Imphal", lat: 24.8170, lon: 93.9368, isCapital: true }] },
+                    ML: { name: "Meghalaya", capital: "Shillong", cities: [{ name: "Shillong", lat: 25.5788, lon: 91.8933, isCapital: true }, { name: "Cherrapunji", lat: 25.2702, lon: 91.7323 }] },
+                    MZ: { name: "Mizoram", capital: "Aizawl", cities: [{ name: "Aizawl", lat: 23.7271, lon: 92.7176, isCapital: true }] },
+                    NL: { name: "Nagaland", capital: "Kohima", cities: [{ name: "Kohima", lat: 25.6751, lon: 94.1086, isCapital: true }, { name: "Dimapur", lat: 25.9091, lon: 93.7266 }] },
+                    OD: { name: "Odisha", capital: "Bhubaneswar", cities: [{ name: "Bhubaneswar", lat: 20.2961, lon: 85.8245, isCapital: true }, { name: "Cuttack", lat: 20.4625, lon: 85.8830 }, { name: "Puri", lat: 19.8135, lon: 85.8312 }] },
+                    PB: { name: "Punjab", capital: "Chandigarh", cities: [{ name: "Chandigarh", lat: 30.7333, lon: 76.7794, isCapital: true }, { name: "Ludhiana", lat: 30.9010, lon: 75.8573 }, { name: "Amritsar", lat: 31.6340, lon: 74.8723 }] },
+                    RJ: { name: "Rajasthan", capital: "Jaipur", cities: [{ name: "Jaipur", lat: 26.9124, lon: 75.7873, isCapital: true }, { name: "Jodhpur", lat: 26.2389, lon: 73.0243 }, { name: "Udaipur", lat: 24.5854, lon: 73.7125 }] },
+                    SK: { name: "Sikkim", capital: "Gangtok", cities: [{ name: "Gangtok", lat: 27.3389, lon: 88.6065, isCapital: true }] },
+                    TN: { name: "Tamil Nadu", capital: "Chennai", cities: [{ name: "Chennai", lat: 13.0827, lon: 80.2707, isCapital: true }, { name: "Coimbatore", lat: 11.0168, lon: 76.9558 }, { name: "Madurai", lat: 9.9252, lon: 78.1198 }] },
+                    TS: { name: "Telangana", capital: "Hyderabad", cities: [{ name: "Hyderabad", lat: 17.3850, lon: 78.4867, isCapital: true }, { name: "Warangal", lat: 17.9689, lon: 79.5941 }] },
+                    TR: { name: "Tripura", capital: "Agartala", cities: [{ name: "Agartala", lat: 23.8315, lon: 91.2868, isCapital: true }] },
+                    UP: { name: "Uttar Pradesh", capital: "Lucknow", cities: [{ name: "Lucknow", lat: 26.8467, lon: 80.9462, isCapital: true }, { name: "Kanpur", lat: 26.4499, lon: 80.3319 }, { name: "Varanasi", lat: 25.3176, lon: 82.9739 }, { name: "Noida", lat: 28.5355, lon: 77.3910 }, { name: "Agra", lat: 27.1767, lon: 78.0081 }] },
+                    UK: { name: "Uttarakhand", capital: "Dehradun", cities: [{ name: "Dehradun", lat: 30.3165, lon: 78.0322, isCapital: true }, { name: "Haridwar", lat: 29.9457, lon: 78.1642 }, { name: "Nainital", lat: 29.3919, lon: 79.4542 }] },
+                    WB: { name: "West Bengal", capital: "Kolkata", cities: [{ name: "Kolkata", lat: 22.5726, lon: 88.3639, isCapital: true }, { name: "Darjeeling", lat: 27.0410, lon: 88.2663 }, { name: "Siliguri", lat: 26.7271, lon: 88.3953 }] },
+                    AN: { name: "Andaman & Nicobar Islands (UT)", capital: "Port Blair", cities: [{ name: "Port Blair", lat: 11.6234, lon: 92.7265, isCapital: true }] },
+                    CH: { name: "Chandigarh (UT)", capital: "Chandigarh", cities: [{ name: "Chandigarh", lat: 30.7333, lon: 76.7794, isCapital: true }] },
+                    DN: { name: "Dadra & Nagar Haveli and Daman & Diu (UT)", capital: "Daman", cities: [{ name: "Daman", lat: 20.3974, lon: 72.8328, isCapital: true }, { name: "Silvassa", lat: 20.2766, lon: 73.0083 }] },
+                    DL: { name: "Delhi (NCT)", capital: "New Delhi", cities: [{ name: "New Delhi", lat: 28.6139, lon: 77.2090, isCapital: true }, { name: "Delhi", lat: 28.7041, lon: 77.1025 }] },
+                    JK: { name: "Jammu & Kashmir (UT)", capital: "Srinagar", cities: [{ name: "Srinagar", lat: 34.0837, lon: 74.7973, isCapital: true }, { name: "Jammu", lat: 32.7266, lon: 74.8570 }] },
+                    LA: { name: "Ladakh (UT)", capital: "Leh", cities: [{ name: "Leh", lat: 34.1526, lon: 77.5771, isCapital: true }, { name: "Kargil", lat: 34.5539, lon: 76.1349 }] },
+                    LD: { name: "Lakshadweep (UT)", capital: "Kavaratti", cities: [{ name: "Kavaratti", lat: 10.5593, lon: 72.6358, isCapital: true }] },
+                    PY: { name: "Puducherry (UT)", capital: "Puducherry", cities: [{ name: "Puducherry", lat: 11.9416, lon: 79.8083, isCapital: true }] }
+                }
+            },
+            US: {
+                name: "United States",
+                flag: "🇺🇸",
+                regionLabel: "State / District",
+                defaultState: "CA",
+                states: {
+                    CA: { name: "California", capital: "Sacramento", cities: [{ name: "Sacramento", lat: 38.5816, lon: -121.4944, isCapital: true }, { name: "Los Angeles", lat: 34.0522, lon: -118.2437 }, { name: "San Francisco", lat: 37.7749, lon: -122.4194 }] },
+                    NY: { name: "New York", capital: "Albany", cities: [{ name: "Albany", lat: 42.6526, lon: -73.7562, isCapital: true }, { name: "New York City", lat: 40.7128, lon: -74.0060 }, { name: "Buffalo", lat: 42.8864, lon: -78.8784 }] },
+                    TX: { name: "Texas", capital: "Austin", cities: [{ name: "Austin", lat: 30.2672, lon: -97.7431, isCapital: true }, { name: "Houston", lat: 29.7604, lon: -95.3698 }, { name: "Dallas", lat: 32.7767, lon: -96.7970 }] },
+                    FL: { name: "Florida", capital: "Tallahassee", cities: [{ name: "Tallahassee", lat: 30.4383, lon: -84.2807, isCapital: true }, { name: "Miami", lat: 25.7617, lon: -80.1918 }, { name: "Orlando", lat: 28.5383, lon: -81.3792 }] },
+                    IL: { name: "Illinois", capital: "Springfield", cities: [{ name: "Springfield", lat: 39.7817, lon: -89.6501, isCapital: true }, { name: "Chicago", lat: 41.8781, lon: -87.6298 }] },
+                    WA: { name: "Washington", capital: "Olympia", cities: [{ name: "Olympia", lat: 47.0379, lon: -122.9007, isCapital: true }, { name: "Seattle", lat: 47.6062, lon: -122.3321 }] },
+                    MA: { name: "Massachusetts", capital: "Boston", cities: [{ name: "Boston", lat: 42.3601, lon: -71.0589, isCapital: true }] },
+                    DC: { name: "District of Columbia", capital: "Washington, D.C.", cities: [{ name: "Washington, D.C.", lat: 38.9072, lon: -77.0369, isCapital: true }] }
+                }
+            },
+            GB: {
+                name: "United Kingdom",
+                flag: "🇬🇧",
+                regionLabel: "Constituent Country",
+                defaultState: "ENG",
+                states: {
+                    ENG: { name: "England", capital: "London", cities: [{ name: "London", lat: 51.5072, lon: -0.1276, isCapital: true }, { name: "Manchester", lat: 53.4808, lon: -2.2426 }, { name: "Birmingham", lat: 52.4862, lon: -1.8904 }] },
+                    SCT: { name: "Scotland", capital: "Edinburgh", cities: [{ name: "Edinburgh", lat: 55.9533, lon: -3.1883, isCapital: true }, { name: "Glasgow", lat: 55.8642, lon: -4.2518 }] },
+                    WLS: { name: "Wales", capital: "Cardiff", cities: [{ name: "Cardiff", lat: 51.4816, lon: -3.1791, isCapital: true }] },
+                    NIR: { name: "Northern Ireland", capital: "Belfast", cities: [{ name: "Belfast", lat: 54.5973, lon: -5.9301, isCapital: true }] }
+                }
+            },
+            JP: {
+                name: "Japan",
+                flag: "🇯🇵",
+                regionLabel: "Prefecture",
+                defaultState: "TYO",
+                states: {
+                    TYO: { name: "Tokyo Metropolis", capital: "Tokyo", cities: [{ name: "Tokyo", lat: 35.6762, lon: 139.6503, isCapital: true }] },
+                    OSK: { name: "Osaka Prefecture", capital: "Osaka", cities: [{ name: "Osaka", lat: 34.6937, lon: 135.5023, isCapital: true }] },
+                    KYT: { name: "Kyoto Prefecture", capital: "Kyoto", cities: [{ name: "Kyoto", lat: 35.0116, lon: 135.7681, isCapital: true }] },
+                    HKD: { name: "Hokkaido", capital: "Sapporo", cities: [{ name: "Sapporo", lat: 43.0618, lon: 141.3545, isCapital: true }] },
+                    FKO: { name: "Fukuoka Prefecture", capital: "Fukuoka", cities: [{ name: "Fukuoka", lat: 33.5902, lon: 130.4017, isCapital: true }] }
+                }
+            },
+            AU: {
+                name: "Australia",
+                flag: "🇦🇺",
+                regionLabel: "State / Territory",
+                defaultState: "NSW",
+                states: {
+                    NSW: { name: "New South Wales", capital: "Sydney", cities: [{ name: "Sydney", lat: -33.8688, lon: 151.2093, isCapital: true }, { name: "Newcastle", lat: -32.9283, lon: 151.7817 }] },
+                    VIC: { name: "Victoria", capital: "Melbourne", cities: [{ name: "Melbourne", lat: -37.8136, lon: 144.9631, isCapital: true }] },
+                    QLD: { name: "Queensland", capital: "Brisbane", cities: [{ name: "Brisbane", lat: -27.4705, lon: 153.0260, isCapital: true }, { name: "Gold Coast", lat: -28.0167, lon: 153.4000 }] },
+                    WA: { name: "Western Australia", capital: "Perth", cities: [{ name: "Perth", lat: -31.9505, lon: 115.8605, isCapital: true }] },
+                    ACT: { name: "Australian Capital Territory", capital: "Canberra", cities: [{ name: "Canberra", lat: -35.2809, lon: 149.1300, isCapital: true }] }
+                }
+            },
+            CA: {
+                name: "Canada",
+                flag: "🇨🇦",
+                regionLabel: "Province / Territory",
+                defaultState: "ON",
+                states: {
+                    ON: { name: "Ontario", capital: "Toronto", cities: [{ name: "Toronto", lat: 43.6532, lon: -79.3832, isCapital: true }, { name: "Ottawa", lat: 45.4215, lon: -75.6972 }] },
+                    BC: { name: "British Columbia", capital: "Victoria", cities: [{ name: "Victoria", lat: 48.4284, lon: -123.3656, isCapital: true }, { name: "Vancouver", lat: 49.2827, lon: -123.1207 }] },
+                    QC: { name: "Quebec", capital: "Quebec City", cities: [{ name: "Quebec City", lat: 46.8139, lon: -71.2080, isCapital: true }, { name: "Montreal", lat: 45.5017, lon: -73.5673 }] },
+                    AB: { name: "Alberta", capital: "Edmonton", cities: [{ name: "Edmonton", lat: 53.5461, lon: -113.4938, isCapital: true }, { name: "Calgary", lat: 51.0447, lon: -114.0719 }] }
+                }
+            },
+            DE: {
+                name: "Germany",
+                flag: "🇩🇪",
+                regionLabel: "Federal State",
+                defaultState: "BE",
+                states: {
+                    BE: { name: "Berlin", capital: "Berlin", cities: [{ name: "Berlin", lat: 52.5200, lon: 13.4050, isCapital: true }] },
+                    BY: { name: "Bavaria", capital: "Munich", cities: [{ name: "Munich", lat: 48.1351, lon: 11.5820, isCapital: true }, { name: "Nuremberg", lat: 49.4521, lon: 11.0767 }] },
+                    HH: { name: "Hamburg", capital: "Hamburg", cities: [{ name: "Hamburg", lat: 53.5511, lon: 9.9937, isCapital: true }] },
+                    HE: { name: "Hesse", capital: "Wiesbaden", cities: [{ name: "Wiesbaden", lat: 50.0782, lon: 8.2398, isCapital: true }, { name: "Frankfurt", lat: 50.1109, lon: 8.6821 }] }
+                }
+            },
+            AE: {
+                name: "United Arab Emirates",
+                flag: "🇦🇪",
+                regionLabel: "Emirate",
+                defaultState: "AZ",
+                states: {
+                    AZ: { name: "Abu Dhabi", capital: "Abu Dhabi", cities: [{ name: "Abu Dhabi", lat: 24.4539, lon: 54.3773, isCapital: true }] },
+                    DU: { name: "Dubai", capital: "Dubai", cities: [{ name: "Dubai", lat: 25.2048, lon: 55.2708, isCapital: true }] },
+                    SH: { name: "Sharjah", capital: "Sharjah", cities: [{ name: "Sharjah", lat: 25.3463, lon: 55.4209, isCapital: true }] }
+                }
+            },
+            FR: {
+                name: "France",
+                flag: "🇫🇷",
+                regionLabel: "Region",
+                defaultState: "IDF",
+                states: {
+                    IDF: { name: "Île-de-France", capital: "Paris", cities: [{ name: "Paris", lat: 48.8566, lon: 2.3522, isCapital: true }] },
+                    ARA: { name: "Auvergne-Rhône-Alpes", capital: "Lyon", cities: [{ name: "Lyon", lat: 45.7640, lon: 4.8357, isCapital: true }] },
+                    PAC: { name: "Provence-Alpes-Côte d'Azur", capital: "Marseille", cities: [{ name: "Marseille", lat: 43.2965, lon: 5.3698, isCapital: true }, { name: "Nice", lat: 43.7102, lon: 7.2620 }] }
+                }
+            },
+            SG: {
+                name: "Singapore",
+                flag: "🇸🇬",
+                regionLabel: "District",
+                defaultState: "SG",
+                states: {
+                    SG: { name: "Central Region", capital: "Singapore", cities: [{ name: "Singapore", lat: 1.3521, lon: 103.8198, isCapital: true }] }
+                }
+            }
+        };
+
+        /**
+         * Country Name -> Flag Emoji Lookup for Open-Meteo Geocoding Results
+         */
+        const COUNTRY_FLAG_MAP = {
+            "India": "🇮🇳",
+            "United States": "🇺🇸",
+            "United Kingdom": "🇬🇧",
+            "Japan": "🇯🇵",
+            "Australia": "🇦🇺",
+            "Canada": "🇨🇦",
+            "Germany": "🇩🇪",
+            "United Arab Emirates": "🇦🇪",
+            "France": "🇫🇷",
+            "Singapore": "🇸🇬",
+            "South Korea": "🇰🇷",
+            "China": "🇨🇳",
+            "Thailand": "🇹🇭",
+            "Malaysia": "🇲🇾",
+            "Indonesia": "🇮🇩",
+            "Russia": "🇷🇺",
+            "Turkey": "🇹🇷",
+            "Egypt": "🇪🇬",
+            "Italy": "🇮🇹",
+            "Spain": "🇪🇸",
+            "Netherlands": "🇳🇱",
+            "Switzerland": "🇨🇭",
+            "Saudi Arabia": "🇸🇦",
+            "Qatar": "🇶🇦",
+            "Brazil": "🇧🇷",
+            "South Africa": "🇿🇦",
+            "New Zealand": "🇳🇿",
+            "Nepal": "🇳🇵",
+            "Sri Lanka": "🇱🇰",
+            "Bangladesh": "🇧🇩"
+        };
+
+        function getFlagForCountry(countryName) {
+            return COUNTRY_FLAG_MAP[countryName] || "🏳️";
+        }
+
+        /**
+         * Extended City Database for Instant Offline/Online Search
+         */
+        const EXTRA_CITIES_DB = [
+            { name: "Indore", stateName: "Madhya Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 22.7196, lon: 75.8577, isCapital: false },
+            { name: "Jabalpur", stateName: "Madhya Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 23.1815, lon: 79.9864, isCapital: false },
+            { name: "Gwalior", stateName: "Madhya Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 26.2183, lon: 78.1828, isCapital: false },
+            { name: "Ujjain", stateName: "Madhya Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 23.1765, lon: 75.7885, isCapital: false },
+            { name: "Pune", stateName: "Maharashtra", countryName: "India", countryFlag: "🇮🇳", lat: 18.5204, lon: 73.8567, isCapital: false },
+            { name: "Nagpur", stateName: "Maharashtra", countryName: "India", countryFlag: "🇮🇳", lat: 21.1458, lon: 79.0882, isCapital: false },
+            { name: "Nashik", stateName: "Maharashtra", countryName: "India", countryFlag: "🇮🇳", lat: 19.9975, lon: 73.7898, isCapital: false },
+            { name: "Ahmedabad", stateName: "Gujarat", countryName: "India", countryFlag: "🇮🇳", lat: 23.0225, lon: 72.5714, isCapital: false },
+            { name: "Surat", stateName: "Gujarat", countryName: "India", countryFlag: "🇮🇳", lat: 21.1702, lon: 72.8311, isCapital: false },
+            { name: "Vadodara", stateName: "Gujarat", countryName: "India", countryFlag: "🇮🇳", lat: 22.3072, lon: 73.1812, isCapital: false },
+            { name: "Kochi", stateName: "Kerala", countryName: "India", countryFlag: "🇮🇳", lat: 9.9312, lon: 76.2673, isCapital: false },
+            { name: "Kozhikode", stateName: "Kerala", countryName: "India", countryFlag: "🇮🇳", lat: 11.2588, lon: 75.7804, isCapital: false },
+            { name: "Coimbatore", stateName: "Tamil Nadu", countryName: "India", countryFlag: "🇮🇳", lat: 11.0168, lon: 76.9558, isCapital: false },
+            { name: "Madurai", stateName: "Tamil Nadu", countryName: "India", countryFlag: "🇮🇳", lat: 9.9252, lon: 78.1198, isCapital: false },
+            { name: "Mysuru", stateName: "Karnataka", countryName: "India", countryFlag: "🇮🇳", lat: 12.2958, lon: 76.6394, isCapital: false },
+            { name: "Mangaluru", stateName: "Karnataka", countryName: "India", countryFlag: "🇮🇳", lat: 12.9141, lon: 74.8560, isCapital: false },
+            { name: "Visakhapatnam", stateName: "Andhra Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 17.6868, lon: 83.2185, isCapital: false },
+            { name: "Vijayawada", stateName: "Andhra Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 16.5062, lon: 80.6480, isCapital: false },
+            { name: "Warangal", stateName: "Telangana", countryName: "India", countryFlag: "🇮🇳", lat: 17.9689, lon: 79.5941, isCapital: false },
+            { name: "Kanpur", stateName: "Uttar Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 26.4499, lon: 80.3319, isCapital: false },
+            { name: "Varanasi", stateName: "Uttar Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 25.3176, lon: 82.9739, isCapital: false },
+            { name: "Noida", stateName: "Uttar Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 28.5355, lon: 77.3910, isCapital: false },
+            { name: "Agra", stateName: "Uttar Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 27.1767, lon: 78.0081, isCapital: false },
+            { name: "Gurugram", stateName: "Haryana", countryName: "India", countryFlag: "🇮🇳", lat: 28.4595, lon: 77.0266, isCapital: false },
+            { name: "Ludhiana", stateName: "Punjab", countryName: "India", countryFlag: "🇮🇳", lat: 30.9010, lon: 75.8573, isCapital: false },
+            { name: "Amritsar", stateName: "Punjab", countryName: "India", countryFlag: "🇮🇳", lat: 31.6340, lon: 74.8723, isCapital: false },
+            { name: "Jodhpur", stateName: "Rajasthan", countryName: "India", countryFlag: "🇮🇳", lat: 26.2389, lon: 73.0243, isCapital: false },
+            { name: "Udaipur", stateName: "Rajasthan", countryName: "India", countryFlag: "🇮🇳", lat: 24.5854, lon: 73.7125, isCapital: false },
+            { name: "Guwahati", stateName: "Assam", countryName: "India", countryFlag: "🇮🇳", lat: 26.1445, lon: 91.7362, isCapital: false },
+            { name: "Darjeeling", stateName: "West Bengal", countryName: "India", countryFlag: "🇮🇳", lat: 27.0410, lon: 88.2663, isCapital: false },
+            { name: "Manali", stateName: "Himachal Pradesh", countryName: "India", countryFlag: "🇮🇳", lat: 32.2432, lon: 77.1892, isCapital: false },
+            { name: "Rishikesh", stateName: "Uttarakhand", countryName: "India", countryFlag: "🇮🇳", lat: 30.0869, lon: 78.2676, isCapital: false },
+            { name: "Seoul", stateName: "Seoul Capital Area", countryName: "South Korea", countryFlag: "🇰🇷", lat: 37.5665, lon: 126.9780, isCapital: true },
+            { name: "Beijing", stateName: "Beijing Municipality", countryName: "China", countryFlag: "🇨🇳", lat: 39.9042, lon: 116.4074, isCapital: true },
+            { name: "Bangkok", stateName: "Bangkok", countryName: "Thailand", countryFlag: "🇹🇭", lat: 13.7563, lon: 100.5018, isCapital: true },
+            { name: "Kuala Lumpur", stateName: "Federal Territory", countryName: "Malaysia", countryFlag: "🇲🇾", lat: 3.1390, lon: 101.6869, isCapital: true },
+            { name: "Jakarta", stateName: "Java", countryName: "Indonesia", countryFlag: "🇮🇩", lat: -6.2088, lon: 106.8456, isCapital: true },
+            { name: "Moscow", stateName: "Central Federal District", countryName: "Russia", countryFlag: "🇷🇺", lat: 55.7558, lon: 37.6173, isCapital: true },
+            { name: "Istanbul", stateName: "Marmara", countryName: "Turkey", countryFlag: "🇹🇷", lat: 41.0082, lon: 28.9784, isCapital: false },
+            { name: "Cairo", stateName: "Cairo Governorate", countryName: "Egypt", countryFlag: "🇪🇬", lat: 30.0444, lon: 31.2357, isCapital: true },
+            { name: "Rome", stateName: "Lazio", countryName: "Italy", countryFlag: "🇮🇹", lat: 41.9028, lon: 12.4964, isCapital: true },
+            { name: "Madrid", stateName: "Community of Madrid", countryName: "Spain", countryFlag: "🇪🇸", lat: 40.4168, lon: -3.7038, isCapital: true },
+            { name: "Amsterdam", stateName: "North Holland", countryName: "Netherlands", countryFlag: "🇳🇱", lat: 52.3676, lon: 4.9041, isCapital: true },
+            { name: "Zurich", stateName: "Zurich", countryName: "Switzerland", countryFlag: "🇨🇭", lat: 47.3769, lon: 8.5417, isCapital: false },
+            { name: "Riyadh", stateName: "Riyadh Province", countryName: "Saudi Arabia", countryFlag: "🇸🇦", lat: 24.7136, lon: 46.6753, isCapital: true },
+            { name: "Doha", stateName: "Doha", countryName: "Qatar", countryFlag: "🇶🇦", lat: 25.2854, lon: 51.5310, isCapital: true },
+            { name: "São Paulo", stateName: "São Paulo", countryName: "Brazil", countryFlag: "🇧🇷", lat: -23.5505, lon: -46.6333, isCapital: false },
+            { name: "Cape Town", stateName: "Western Cape", countryName: "South Africa", countryFlag: "🇿🇦", lat: -33.9249, lon: 18.4241, isCapital: true },
+            { name: "Kathmandu", stateName: "Bagmati", countryName: "Nepal", countryFlag: "🇳🇵", lat: 27.7172, lon: 85.3240, isCapital: true },
+            { name: "Colombo", stateName: "Western Province", countryName: "Sri Lanka", countryFlag: "🇱🇰", lat: 6.9271, lon: 79.8612, isCapital: true }
+        ];
+
+        // Multi-hue atmospheric accent moods
+        const MOOD_PRESETS = [
+            {
+                name: "Twilight Sunset",
+                orb1: "bg-amber-500/25",
+                orb2: "bg-fuchsia-600/25",
+                orb3: "bg-rose-500/20",
+                corner1: "bg-amber-500/15",
+                corner2: "bg-fuchsia-500/15"
+            },
+            {
+                name: "Aurora Violet & Emerald",
+                orb1: "bg-emerald-400/20",
+                orb2: "bg-violet-600/30",
+                orb3: "bg-teal-400/20",
+                corner1: "bg-emerald-400/15",
+                corner2: "bg-violet-500/20"
+            },
+            {
+                name: "Solar Magenta & Gold",
+                orb1: "bg-yellow-400/25",
+                orb2: "bg-pink-600/25",
+                orb3: "bg-orange-500/20",
+                corner1: "bg-yellow-400/15",
+                corner2: "bg-pink-500/15"
+            }
+        ];
+
+        // Application State
+        let state = {
+            countryCode: 'IN',
+            stateCode: 'MP',
+            selectedLocation: {
+                name: 'Bhopal',
+                stateName: 'Madhya Pradesh',
+                countryName: 'India',
+                countryFlag: '🇮🇳',
+                lat: 23.2599,
+                lon: 77.4126,
+                isCapital: true
+            },
+            recentLocations: [
+                { name: 'Bhopal', stateName: 'Madhya Pradesh', countryName: 'India', countryFlag: '🇮🇳', lat: 23.2599, lon: 77.4126, isCapital: true },
+                { name: 'New Delhi', stateName: 'Delhi (NCT)', countryName: 'India', countryFlag: '🇮🇳', lat: 28.6139, lon: 77.2090, isCapital: true },
+                { name: 'Tokyo', stateName: 'Tokyo Metropolis', countryName: 'Japan', countryFlag: '🇯🇵', lat: 35.6762, lon: 139.6503, isCapital: true }
+            ],
+            weatherData: null,
+            unit: 'C',
+            moodIndex: 0,
+            radarLayer: 'thermal',
+            hourlyMode: 'temp',
+            activeTab: 'dashboard',
+            autoSync: true,
+            isLiveApi: true
+        };
+
+        function formatTemp(tempC, includeSymbol = false) {
+            if (tempC === null || tempC === undefined || isNaN(tempC)) return '--°';
+            const val = state.unit === 'C' ? Math.round(tempC) : Math.round((tempC * 9) / 5 + 32);
+            return includeSymbol ? `${val}°${state.unit}` : `${val}°`;
+        }
+
+        function getRawTemp(tempC) {
+            if (tempC === null || tempC === undefined || isNaN(tempC)) return 0;
+            return state.unit === 'C' ? Math.round(tempC) : Math.round((tempC * 9) / 5 + 32);
+        }
+
+        function degToCompass(deg) {
+            if (deg === undefined || deg === null) return '';
+            const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            return dirs[Math.round(deg / 45) % 8];
+        }
+
+        function interpretWmoCode(code, isDay = 1) {
+            if (code === 0) {
+                return {
+                    label: isDay ? 'Clear & radiant' : 'Clear starlit sky',
+                    badge: isDay ? 'Golden Clear' : 'Velvet Night',
+                    icon: isDay ? 'sunny' : 'clear-night',
+                    theme: isDay ? 'warm' : 'night'
+                };
+            }
+            if (code === 1 || code === 2) {
+                return {
+                    label: isDay ? 'Partly sunny' : 'Partly cloudy night',
+                    badge: isDay ? 'Partly Sunny' : 'Twilight Breeze',
+                    icon: isDay ? 'partly-cloudy' : 'cloudy-night',
+                    theme: isDay ? 'warm' : 'night'
+                };
+            }
+            if (code === 3) {
+                return {
+                    label: 'Overcast clouds',
+                    badge: 'Cloudy Canopy',
+                    icon: 'cloudy',
+                    theme: 'cool'
+                };
+            }
+            if (code === 45 || code === 48) {
+                return {
+                    label: 'Mist & atmospheric haze',
+                    badge: 'Misty Veil',
+                    icon: 'cloudy',
+                    theme: 'cool'
+                };
+            }
+            if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) {
+                return {
+                    label: code >= 63 ? 'Moderate to heavy rain' : 'Light rain & showers',
+                    badge: 'Rain Active',
+                    icon: 'rain',
+                    theme: 'rain'
+                };
+            }
+            if ([71, 73, 75, 77, 85, 86].includes(code)) {
+                return {
+                    label: 'Snowfall',
+                    badge: 'Alpine Snow',
+                    icon: 'cloudy',
+                    theme: 'cool'
+                };
+            }
+            if ([95, 96, 99].includes(code)) {
+                return {
+                    label: 'Thunderstorms',
+                    badge: 'Storm Cell',
+                    icon: 'rain',
+                    theme: 'rain'
+                };
+            }
+            return {
+                label: 'Partly cloudy',
+                badge: 'Live Telemetry',
+                icon: isDay ? 'partly-cloudy' : 'cloudy-night',
+                theme: 'cool'
+            };
+        }
+
+        function applyAmbientTheme(theme) {
+            const mood = MOOD_PRESETS[state.moodIndex % MOOD_PRESETS.length];
+            const orb1 = document.getElementById('ambientOrb1');
+            const orb2 = document.getElementById('ambientOrb2');
+            const orb3 = document.getElementById('ambientOrb3');
+            const corner1 = document.getElementById('heroCornerGlow');
+            const corner2 = document.getElementById('heroCornerGlowSecondary');
+
+            if (theme === 'rain') {
+                orb1.className = "ambient-glow w-96 h-96 bg-teal-500/25 top-[-6%] left-[12%] transition-colors duration-1000";
+                orb2.className = "ambient-glow w-[30rem] h-[30rem] bg-indigo-600/30 bottom-[-10%] right-[8%] transition-colors duration-1000";
+                orb3.className = "ambient-glow w-80 h-80 bg-fuchsia-500/20 top-[36%] right-[28%] transition-colors duration-1000";
+            } else if (theme === 'night') {
+                orb1.className = "ambient-glow w-96 h-96 bg-fuchsia-600/25 top-[-6%] left-[12%] transition-colors duration-1000";
+                orb2.className = "ambient-glow w-[30rem] h-[30rem] bg-amber-500/20 bottom-[-10%] right-[8%] transition-colors duration-1000";
+                orb3.className = "ambient-glow w-80 h-80 bg-purple-600/25 top-[36%] right-[28%] transition-colors duration-1000";
+            } else {
+                orb1.className = `ambient-glow w-96 h-96 ${mood.orb1} top-[-6%] left-[12%] transition-colors duration-1000`;
+                orb2.className = `ambient-glow w-[30rem] h-[30rem] ${mood.orb2} bottom-[-10%] right-[8%] transition-colors duration-1000`;
+                orb3.className = `ambient-glow w-80 h-80 ${mood.orb3} top-[36%] right-[28%] transition-colors duration-1000`;
+            }
+
+            corner1.className = `absolute -right-12 -top-12 w-52 h-52 ${mood.corner1} rounded-full blur-2xl pointer-events-none transition-colors duration-700`;
+            corner2.className = `absolute -left-14 -bottom-14 w-52 h-52 ${mood.corner2} rounded-full blur-2xl pointer-events-none transition-colors duration-700`;
+        }
+
+        function cycleAccentMood() {
+            state.moodIndex = (state.moodIndex + 1) % MOOD_PRESETS.length;
+            const mood = MOOD_PRESETS[state.moodIndex];
+            applyAmbientTheme(state.weatherData ? state.weatherData.theme : 'warm');
+            showToast(`Palette mood: ${mood.name}`);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toastMessage');
+            document.getElementById('toastText').textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2600);
+        }
+
+        function recordRecentLocation(loc) {
+            state.recentLocations = [
+                loc,
+                ...state.recentLocations.filter(item => !(item.name === loc.name && item.countryName === loc.countryName))
+            ].slice(0, 4);
+            renderRecentSearchChips();
+        }
+
+        function renderRecentSearchChips() {
+            const container = document.getElementById('recentSearchChips');
+            if (!container) return;
+            container.innerHTML = state.recentLocations.map((loc, idx) => `
+                <button type="button" data-recent-idx="${idx}"
+                    class="recent-chip px-2.5 py-0.5 rounded-full bg-[#241149]/85 hover:bg-amber-500/20 text-purple-100 hover:text-amber-200 border border-purple-400/20 hover:border-amber-400/40 whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer">
+                    <span class="flag-badge text-xs">${loc.countryFlag || '🏳️'}</span>
+                    <span>${loc.name}</span>
+                </button>
+            `).join('');
+
+            container.querySelectorAll('.recent-chip').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const chosen = state.recentLocations[parseInt(btn.dataset.recentIdx, 10)];
+                    if (chosen) {
+                        updateCapitalTag(!!chosen.isCapital);
+                        loadLocation(chosen);
+                    }
+                });
+            });
+        }
+
+        async function fetchLiveTelemetry(loc) {
+            const { lat, lon } = loc;
+            const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,visibility&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&timezone=auto`;
+            const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm10,pm2_5,ozone`;
+
+            try {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 4500);
+                const [weatherRes, aqiRes] = await Promise.all([
+                    fetch(weatherUrl, { signal: controller.signal }),
+                    fetch(aqiUrl, { signal: controller.signal }).catch(() => null)
+                ]);
+                clearTimeout(timer);
+
+                if (!weatherRes.ok) throw new Error('Weather API unavailable');
+                const wJson = await weatherRes.json();
+                const aJson = (aqiRes && aqiRes.ok) ? await aqiRes.json() : null;
+
+                state.isLiveApi = true;
+                updateApiStatusBadge(true);
+                return normalizeOpenMeteoData(wJson, aJson);
+            } catch (err) {
+                state.isLiveApi = false;
+                updateApiStatusBadge(false);
+                return generateFallbackData(loc);
+            }
+        }
+
+        function updateApiStatusBadge(isLive) {
+            const ping = document.getElementById('statusPing');
+            const dot = document.getElementById('statusDot');
+            const label = document.getElementById('statusLabel');
+            if (isLive) {
+                ping.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+                dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400";
+                label.textContent = "LIVE API";
+                label.className = "text-[9px] text-emerald-300 font-semibold tracking-wide";
+            } else {
+                ping.className = "hidden";
+                dot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400";
+                label.textContent = "LOCAL ATLAS";
+                label.className = "text-[9px] text-amber-300 font-semibold tracking-wide";
+            }
+        }
+
+        function normalizeOpenMeteoData(w, a) {
+            const curr = w.current;
+            const daily = w.daily;
+            const hourly = w.hourly;
+            const wmo = interpretWmoCode(curr.weather_code, curr.is_day);
+
+            const nowIsoPrefix = curr.time ? curr.time.slice(0, 13) : '';
+            let startIdx = hourly.time.findIndex(t => t.startsWith(nowIsoPrefix));
+            if (startIdx < 0) startIdx = 0;
+
+            const hourlySlots = [];
+            for (let i = 0; i < 8; i++) {
+                const idx = Math.min(hourly.time.length - 1, startIdx + i * 3);
+                const tStr = hourly.time[idx];
+                const hourLabel = i === 0 ? 'Now' : tStr.slice(11, 16);
+                const hCode = hourly.weather_code[idx];
+                const hHourNum = parseInt(tStr.slice(11, 13), 10);
+                const hIsDay = (hHourNum >= 6 && hHourNum <= 18) ? 1 : 0;
+                hourlySlots.push({
+                    time: hourLabel,
+                    tempC: hourly.temperature_2m[idx],
+                    precip: hourly.precipitation_probability[idx] ?? 0,
+                    wind: Math.round(hourly.wind_speed_10m[idx]),
+                    icon: interpretWmoCode(hCode, hIsDay).icon
+                });
+            }
+
+            const visMeters = hourly.visibility ? hourly.visibility[startIdx] : 10000;
+            const visKm = visMeters ? (visMeters / 1000).toFixed(visMeters >= 10000 ? 0 : 1) + ' km' : '10 km';
+
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const weeklySlots = [];
+            for (let d = 0; d < Math.min(7, daily.time.length); d++) {
+                const dateObj = new Date(daily.time[d] + 'T00:00:00');
+                const dayLabel = d === 0 ? 'Today' : dayNames[dateObj.getDay()];
+                const dWmo = interpretWmoCode(daily.weather_code[d], 1);
+                weeklySlots.push({
+                    day: dayLabel,
+                    icon: dWmo.icon,
+                    cond: dWmo.label,
+                    lowC: daily.temperature_2m_min[d],
+                    highC: daily.temperature_2m_max[d],
+                    precip: `${daily.precipitation_probability_max[d] ?? 0}%`
+                });
+            }
+
+            const sunriseRaw = daily.sunrise[0] || '';
+            const sunsetRaw = daily.sunset[0] || '';
+            const formatClock = (iso) => {
+                if (!iso || iso.length < 16) return '--:--';
+                const [hh, mm] = iso.slice(11, 16).split(':').map(Number);
+                const ampm = hh >= 12 ? 'PM' : 'AM';
+                const h12 = hh % 12 || 12;
+                return `${String(h12).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${ampm}`;
+            };
+
+            let sunProgress = 0.5;
+            let daylightStr = '11h 30m';
+            if (sunriseRaw && sunsetRaw && curr.time) {
+                const srMs = new Date(sunriseRaw).getTime();
+                const ssMs = new Date(sunsetRaw).getTime();
+                const nowMs = new Date(curr.time).getTime();
+                if (ssMs > srMs) {
+                    sunProgress = Math.max(0.04, Math.min(0.96, (nowMs - srMs) / (ssMs - srMs)));
+                    const diffMins = Math.round((ssMs - srMs) / 60000);
+                    daylightStr = `${Math.floor(diffMins / 60)}h ${String(diffMins % 60).padStart(2, '0')}m`;
+                }
+            }
+
+            const uvVal = daily.uv_index_max ? Math.round(daily.uv_index_max[0]) : 5;
+            const uvText = uvVal <= 2 ? `${uvVal} Low` : uvVal <= 5 ? `${uvVal} Moderate` : uvVal <= 7 ? `${uvVal} High` : `${uvVal} Very High`;
+
+            const aqiCurr = a && a.current ? a.current : null;
+            const usAqi = aqiCurr && aqiCurr.us_aqi !== null ? Math.round(aqiCurr.us_aqi) : 45;
+            let aqiLabel = 'Good';
+            let aqiDesc = 'Air quality is satisfactory, and air pollution poses little or no risk.';
+            if (usAqi > 150) {
+                aqiLabel = 'Unhealthy';
+                aqiDesc = 'Everyone may begin to experience health effects; limit prolonged outdoor exertion.';
+            } else if (usAqi > 100) {
+                aqiLabel = 'Sensitive';
+                aqiDesc = 'Members of sensitive groups may experience health effects.';
+            } else if (usAqi > 50) {
+                aqiLabel = 'Moderate';
+                aqiDesc = 'Air quality is acceptable; moderate health concern for very sensitive individuals.';
+            }
+
+            return {
+                tempC: curr.temperature_2m,
+                feelsLikeC: curr.apparent_temperature,
+                highC: daily.temperature_2m_max[0],
+                lowC: daily.temperature_2m_min[0],
+                condition: wmo.label,
+                badge: wmo.badge,
+                iconType: wmo.icon,
+                theme: wmo.theme,
+                localTimeStr: curr.time ? curr.time.replace('T', ' ') : 'Live',
+                timezoneAbbr: w.timezone_abbreviation || 'Local',
+                aqi: usAqi,
+                aqiLabel,
+                aqiDesc,
+                pm25: aqiCurr && aqiCurr.pm2_5 !== null ? `${aqiCurr.pm2_5.toFixed(1)} µg/m³` : '12.4 µg/m³',
+                pm10: aqiCurr && aqiCurr.pm10 !== null ? `${aqiCurr.pm10.toFixed(1)} µg/m³` : '28.1 µg/m³',
+                o3: aqiCurr && aqiCurr.ozone !== null ? `${Math.round(aqiCurr.ozone)} µg/m³` : '34 µg/m³',
+                windKmh: Math.round(curr.wind_speed_10m),
+                windDir: degToCompass(curr.wind_direction_10m),
+                humidity: Math.round(curr.relative_humidity_2m),
+                uv: uvText,
+                visibility: visKm,
+                sunrise: formatClock(sunriseRaw),
+                sunset: formatClock(sunsetRaw),
+                daylight: daylightStr,
+                sunProgress,
+                moonPhase: 'Waxing Gibbous',
+                radarSeed: Math.abs((w.latitude || 23) + (w.longitude || 77)) % 10 + 1,
+                hourly: hourlySlots,
+                weekly: weeklySlots
+            };
+        }
+
+        function generateFallbackData(loc) {
+            const absLat = Math.abs(loc.lat);
+            const hash = Math.abs(Math.round((loc.lat * 13.7) + (loc.lon * 7.3) + loc.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)));
+            const offset = (hash % 7) - 3;
+            const isMountain = ['Leh', 'Shimla', 'Manali', 'Gangtok', 'Srinagar', 'Dehradun', 'Nainital', 'Darjeeling', 'Kathmandu'].includes(loc.name);
+            const baseTemp = isMountain
+                ? Math.max(4, Math.round(16 - absLat * 0.25 + offset))
+                : Math.round(32 - absLat * 0.42 + offset);
+
+            const isCoastal = ['Mumbai', 'Chennai', 'Kochi', 'Panaji', 'Kolkata', 'Singapore', 'Tokyo', 'Sydney', 'London', 'Miami', 'Visakhapatnam'].includes(loc.name);
+            const humidity = isCoastal ? 68 + (hash % 18) : 36 + (hash % 24);
+            const windKmh = 9 + (hash % 16);
+            const windDirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const windDir = windDirs[hash % 8];
+            const aqi = isMountain ? 22 + (hash % 20) : 38 + (hash % 62);
+            const isRainy = (hash % 5 === 0) && isCoastal;
+
+            const cond = isRainy ? 'Scattered showers' : isMountain ? 'Crisp & clear' : absLat > 45 ? 'Cool & partly cloudy' : 'Partly sunny';
+            const badge = isRainy ? 'Coastal Showers' : isMountain ? 'Alpine Clear' : 'Atlas Telemetry';
+            const iconType = isRainy ? 'rain' : absLat > 45 ? 'cloudy' : 'partly-cloudy';
+            const theme = isRainy ? 'rain' : absLat > 45 ? 'cool' : 'warm';
+
+            return {
+                tempC: baseTemp,
+                feelsLikeC: baseTemp + (humidity > 65 ? 2 : 0),
+                highC: baseTemp + 3,
+                lowC: baseTemp - 8,
+                condition: cond,
+                badge,
+                iconType,
+                theme,
+                localTimeStr: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                timezoneAbbr: 'Atlas',
+                aqi,
+                aqiLabel: aqi <= 50 ? 'Good' : 'Moderate',
+                aqiDesc: aqi <= 50
+                    ? 'Air quality is satisfactory with clean atmospheric circulation.'
+                    : 'Air quality is acceptable; moderate particulate levels detected.',
+                pm25: `${(aqi * 0.24).toFixed(1)} µg/m³`,
+                pm10: `${(aqi * 0.51).toFixed(1)} µg/m³`,
+                o3: `${28 + (hash % 22)} µg/m³`,
+                windKmh,
+                windDir,
+                humidity,
+                uv: absLat < 30 ? `${6 + (hash % 3)} High` : `${3 + (hash % 3)} Moderate`,
+                visibility: isRainy ? '6.5 km' : '10 km',
+                sunrise: '06:28 AM',
+                sunset: '05:52 PM',
+                daylight: '11h 24m',
+                sunProgress: 0.62,
+                moonPhase: 'Waxing Gibbous',
+                radarSeed: Math.abs(loc.lat + loc.lon) % 10 + 1,
+                hourly: [
+                    { time: 'Now', tempC: baseTemp, precip: isRainy ? 55 : 10, wind: windKmh, icon: iconType },
+                    { time: '14:00', tempC: baseTemp + 2, precip: isRainy ? 45 : 10, wind: windKmh + 2, icon: isRainy ? 'rain' : 'sunny' },
+                    { time: '17:00', tempC: baseTemp + 1, precip: 15, wind: windKmh + 1, icon: 'partly-cloudy' },
+                    { time: '20:00', tempC: baseTemp - 3, precip: 5, wind: Math.max(5, windKmh - 3), icon: 'clear-night' },
+                    { time: '23:00', tempC: baseTemp - 5, precip: 5, wind: Math.max(5, windKmh - 4), icon: 'clear-night' },
+                    { time: '02:00', tempC: baseTemp - 7, precip: 0, wind: Math.max(4, windKmh - 5), icon: 'clear-night' },
+                    { time: '05:00', tempC: baseTemp - 8, precip: 5, wind: Math.max(4, windKmh - 5), icon: 'cloudy-night' },
+                    { time: '08:00', tempC: baseTemp - 4, precip: 10, wind: Math.max(6, windKmh - 2), icon: 'partly-cloudy' }
+                ],
+                weekly: [
+                    { day: 'Today', icon: iconType, cond, lowC: baseTemp - 8, highC: baseTemp + 3, precip: isRainy ? '55%' : '10%' },
+                    { day: 'Wed', icon: 'sunny', cond: 'Clear skies', lowC: baseTemp - 7, highC: baseTemp + 4, precip: '5%' },
+                    { day: 'Thu', icon: 'partly-cloudy', cond: 'Mild breeze', lowC: baseTemp - 8, highC: baseTemp + 2, precip: '15%' },
+                    { day: 'Fri', icon: 'rain', cond: 'Light showers', lowC: baseTemp - 9, highC: baseTemp, precip: '50%' },
+                    { day: 'Sat', icon: 'partly-cloudy', cond: 'Clearing', lowC: baseTemp - 8, highC: baseTemp + 2, precip: '15%' },
+                    { day: 'Sun', icon: 'sunny', cond: 'Sunny', lowC: baseTemp - 7, highC: baseTemp + 3, precip: '0%' },
+                    { day: 'Mon', icon: 'sunny', cond: 'Bright & warm', lowC: baseTemp - 6, highC: baseTemp + 4, precip: '5%' }
+                ]
+            };
+        }
+
+        function getWeatherSVG(type, sizeClass = "w-8 h-8") {
+            switch (type) {
+                case 'sunny':
+                    return `<svg class="${sizeClass}" viewBox="0 0 64 64" fill="none">
+                        <circle cx="32" cy="32" r="14" fill="#fbbf24"/>
+                        <g stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round">
+                            <line x1="32" y1="6" x2="32" y2="12"/><line x1="32" y1="52" x2="32" y2="58"/>
+                            <line x1="6" y1="32" x2="12" y2="32"/><line x1="52" y1="32" x2="58" y2="32"/>
+                            <line x1="13.6" y1="13.6" x2="17.8" y2="17.8"/><line x1="46.2" y1="46.2" x2="50.4" y2="50.4"/>
+                            <line x1="50.4" y1="13.6" x2="46.2" y2="17.8"/><line x1="17.8" y1="46.2" x2="13.6" y2="50.4"/>
+                        </g>
+                    </svg>`;
+                case 'partly-cloudy':
+                    return `<svg class="${sizeClass}" viewBox="0 0 64 64" fill="none">
+                        <circle cx="40" cy="22" r="11" fill="#fbbf24"/>
+                        <path d="M20 46H44C49.5228 46 54 41.5228 54 36C54 30.7347 49.9324 26.4165 44.7568 26.0283C42.9846 19.6579 37.1636 15 30.25 15C21.9657 15 15.25 21.7157 15.25 30C15.25 30.3432 15.2615 30.6838 15.2842 31.0213C11.8168 32.1665 9.33334 35.4146 9.33334 39.25C9.33334 43.9756 13.1638 46 20 46Z" fill="#e2e8f0"/>
+                    </svg>`;
+                case 'cloudy':
+                    return `<svg class="${sizeClass}" viewBox="0 0 64 64" fill="none">
+                        <path d="M18 48H46C51.5228 48 56 43.5228 56 38C56 32.7347 51.9324 28.4165 46.7568 28.0283C44.9846 21.6579 39.1636 17 32.25 17C23.9657 17 17.25 23.7157 17.25 32C17.25 32.3432 17.2615 32.6838 17.2842 33.0213C13.8168 34.1665 11.3333 37.4146 11.3333 41.25C11.3333 45.9756 14.5 48 18 48Z" fill="#cbd5e1"/>
+                    </svg>`;
+                case 'rain':
+                    return `<svg class="${sizeClass}" viewBox="0 0 64 64" fill="none">
+                        <path d="M18 40H46C50.9706 40 55 35.9706 55 31C55 26.2619 51.3396 22.3812 46.6889 22.0234C44.9562 16.2156 39.5834 12 33.25 12C25.518 12 19.25 18.268 19.25 26C19.25 26.31 19.2601 26.6176 19.28 26.9223C15.6566 27.9554 13 31.2877 13 35.25C13 38.5 15.2 40 18 40Z" fill="#94a3b8"/>
+                        <line x1="24" y1="45" x2="20" y2="54" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
+                        <line x1="34" y1="45" x2="30" y2="54" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
+                        <line x1="44" y1="45" x2="40" y2="54" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
+                    </svg>`;
+                case 'clear-night':
+                    return `<svg class="${sizeClass}" viewBox="0 0 64 64" fill="none">
+                        <path d="M46 38.5C36.8873 38.5 29.5 31.1127 29.5 22C29.5 18.4737 30.6067 15.2054 32.4926 12.5214C23.5419 13.2682 16.5 20.7794 16.5 29.95C16.5 39.615 24.335 47.45 34 47.45C42.1983 47.45 49.0928 41.8117 51.0256 34.1874C49.5372 36.847 47.8825 38.5 46 38.5Z" fill="#f59e0b"/>
+                    </svg>`;
+                default:
+                    return `<svg class="${sizeClass}" viewBox="0 0 64 64" fill="none">
+                        <path d="M44 28C44 21.9249 39.0751 17 33 17C28.4 17 24.46 19.82 22.82 23.82C17.92 24.34 14 28.48 14 33.5C14 38.88 18.36 43.25 23.75 43.25H43.5C47.64 43.25 51 39.89 51 35.75C51 31.86 48.04 28.66 44 28Z" fill="#a78bfa"/>
+                    </svg>`;
+            }
+        }
+
+        function populateCountryDropdown() {
+            const countrySelect = document.getElementById('countrySelect');
+            countrySelect.innerHTML = Object.entries(WORLD_HIERARCHY).map(([code, c]) =>
+                `<option value="${code}">${c.flag} ${c.name}</option>`
+            ).join('');
+            countrySelect.value = state.countryCode;
+            document.getElementById('activeCountryFlagPreview').textContent = WORLD_HIERARCHY[state.countryCode].flag;
+        }
+
+        function populateStateDropdown(countryCode, selectedStateCode = null) {
+            const country = WORLD_HIERARCHY[countryCode];
+            const stateSelect = document.getElementById('stateSelect');
+            const labelEl = document.getElementById('stateSelectLabel');
+            const countBadge = document.getElementById('stateCountBadge');
+
+            document.getElementById('activeCountryFlagPreview').textContent = country.flag;
+
+            const stateEntries = Object.entries(country.states);
+            labelEl.firstElementChild.textContent = `2. ${country.regionLabel}`;
+            countBadge.textContent = `${stateEntries.length} ${stateEntries.length === 1 ? 'Region' : 'Regions'}`;
+
+            stateSelect.innerHTML = stateEntries.map(([sCode, sObj]) =>
+                `<option value="${sCode}">${country.flag} ${sObj.name} (${sObj.capital})</option>`
+            ).join('');
+
+            const targetState = selectedStateCode && country.states[selectedStateCode]
+                ? selectedStateCode
+                : country.defaultState;
+            state.stateCode = targetState;
+            stateSelect.value = targetState;
+
+            populateCityDropdown(countryCode, targetState);
+        }
+
+        function populateCityDropdown(countryCode, stateCode, autoLoadFirst = true) {
+            const country = WORLD_HIERARCHY[countryCode];
+            const region = country.states[stateCode];
+            const citySelect = document.getElementById('citySelect');
+
+            citySelect.innerHTML = region.cities.map((city, idx) =>
+                `<option value="${idx}">${country.flag} ${city.name}${city.isCapital ? ' ★ (Capital)' : ''}</option>`
+            ).join('');
+
+            if (autoLoadFirst && region.cities.length > 0) {
+                const cap = region.cities[0];
+                updateCapitalTag(!!cap.isCapital);
+                loadLocation({
+                    name: cap.name,
+                    stateName: region.name,
+                    countryName: country.name,
+                    countryFlag: country.flag,
+                    lat: cap.lat,
+                    lon: cap.lon,
+                    isCapital: !!cap.isCapital
+                });
+            }
+        }
+
+        function updateCapitalTag(isCapital) {
+            const tag = document.getElementById('capitalIndicatorTag');
+            if (isCapital) {
+                tag.classList.remove('hidden');
+            } else {
+                tag.classList.add('hidden');
+            }
+        }
+
+        function renderQuickCityPills() {
+            const container = document.getElementById('quickCityPills');
+            const quickPicks = [
+                { cCode: 'IN', sCode: 'MP', cIdx: 0, label: 'Bhopal', flag: '🇮🇳' },
+                { cCode: 'IN', sCode: 'DL', cIdx: 0, label: 'New Delhi', flag: '🇮🇳' },
+                { cCode: 'IN', sCode: 'MH', cIdx: 0, label: 'Mumbai', flag: '🇮🇳' },
+                { cCode: 'IN', sCode: 'KA', cIdx: 0, label: 'Bengaluru', flag: '🇮🇳' },
+                { cCode: 'IN', sCode: 'RJ', cIdx: 0, label: 'Jaipur', flag: '🇮🇳' },
+                { cCode: 'US', sCode: 'NY', cIdx: 1, label: 'New York', flag: '🇺🇸' },
+                { cCode: 'GB', sCode: 'ENG', cIdx: 0, label: 'London', flag: '🇬🇧' },
+                { cCode: 'JP', sCode: 'TYO', cIdx: 0, label: 'Tokyo', flag: '🇯🇵' },
+                { cCode: 'FR', sCode: 'IDF', cIdx: 0, label: 'Paris', flag: '🇫🇷' },
+                { cCode: 'AE', sCode: 'DU', cIdx: 0, label: 'Dubai', flag: '🇦🇪' }
+            ];
+
+            container.innerHTML = quickPicks.map(qp => {
+                const isActive = state.selectedLocation.name === qp.label;
+                return `
+                    <button type="button" onclick="selectHierarchyLocation('${qp.cCode}', '${qp.sCode}', ${qp.cIdx})"
+                        class="px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all flex items-center gap-1.5 border cursor-pointer ${
+                            isActive
+                            ? 'bg-gradient-to-r from-amber-500/25 to-rose-500/25 text-amber-200 border-amber-400/45 shadow-sm'
+                            : 'bg-[#1a0c38]/80 text-purple-200/80 hover:text-white border-purple-400/20 hover:bg-purple-900/60'
+                        }">
+                        <span class="flag-badge text-xs">${qp.flag}</span>
+                        <span>${qp.label}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectHierarchyLocation(countryCode, stateCode, cityIndex = 0) {
+            state.countryCode = countryCode;
+            state.stateCode = stateCode;
+            document.getElementById('countrySelect').value = countryCode;
+            populateStateDropdown(countryCode, stateCode);
+
+            const country = WORLD_HIERARCHY[countryCode];
+            const region = country.states[stateCode];
+            const city = region.cities[cityIndex] || region.cities[0];
+            document.getElementById('citySelect').value = String(cityIndex);
+            updateCapitalTag(!!city.isCapital);
+
+            loadLocation({
+                name: city.name,
+                stateName: region.name,
+                countryName: country.name,
+                countryFlag: country.flag,
+                lat: city.lat,
+                lon: city.lon,
+                isCapital: !!city.isCapital
+            });
+        }
+
+        async function loadLocation(locObj) {
+            const flag = locObj.countryFlag || getFlagForCountry(locObj.countryName);
+            const normalizedLoc = { ...locObj, countryFlag: flag };
+            state.selectedLocation = normalizedLoc;
+            recordRecentLocation(normalizedLoc);
+            renderQuickCityPills();
+
+            document.getElementById('heroCountryFlag').textContent = flag;
+            document.getElementById('radarCityFlag').textContent = flag;
+            document.getElementById('fullRadarFlag').textContent = flag;
+
+            document.getElementById('heroCityName').textContent = normalizedLoc.stateName
+                ? `${normalizedLoc.name}, ${normalizedLoc.stateName}`
+                : `${normalizedLoc.name}, ${normalizedLoc.countryName}`;
+
+            const capBadge = document.getElementById('heroCapitalBadge');
+            if (normalizedLoc.isCapital) {
+                capBadge.classList.remove('hidden');
+            } else {
+                capBadge.classList.add('hidden');
+            }
+
+            document.getElementById('heroDateTime').textContent = `${flag} ${normalizedLoc.countryName} • Fetching live atmospheric telemetry...`;
+            document.getElementById('radarCoords').textContent = `${Math.abs(normalizedLoc.lat).toFixed(4)}° ${normalizedLoc.lat >= 0 ? 'N' : 'S'}, ${Math.abs(normalizedLoc.lon).toFixed(4)}° ${normalizedLoc.lon >= 0 ? 'E' : 'W'}`;
+            document.getElementById('radarCityTag').textContent = normalizedLoc.name;
+
+            const data = await fetchLiveTelemetry(normalizedLoc);
+            state.weatherData = data;
+            renderAll();
+            showToast(`${flag} ${normalizedLoc.name} (${state.isLiveApi ? 'Live API' : 'Local Atlas'}) loaded`);
+        }
+
+        function renderHeroSection(data) {
+            const loc = state.selectedLocation;
+            const heroCard = document.getElementById('heroCard');
+            heroCard.classList.remove('fade-update');
+            void heroCard.offsetWidth;
+            heroCard.classList.add('fade-update');
+
+            applyAmbientTheme(data.theme);
+
+            document.getElementById('heroDateTime').textContent = `${loc.countryFlag} ${loc.countryName} • ${data.localTimeStr} (${data.timezoneAbbr})`;
+            document.getElementById('heroBadge').textContent = data.badge;
+
+            document.getElementById('heroWeatherIcon').innerHTML = getWeatherSVG(data.iconType, "w-20 h-20 sm:w-24 sm:h-24");
+            document.getElementById('heroTemp').textContent = getRawTemp(data.tempC);
+            document.getElementById('heroTempUnit').textContent = `°${state.unit}`;
+            document.getElementById('heroCondition').textContent = data.condition;
+
+            document.getElementById('heroFeelsLike').textContent = formatTemp(data.feelsLikeC);
+            document.getElementById('heroHigh').textContent = formatTemp(data.highC);
+            document.getElementById('heroLow').textContent = formatTemp(data.lowC);
+
+            document.getElementById('metricAqi').textContent = `${data.aqi} ${data.aqiLabel}`;
+            const aqiDot = document.getElementById('metricAqiDot');
+            aqiDot.className = data.aqi <= 50 ? "w-2 h-2 rounded-full bg-emerald-400" : data.aqi <= 100 ? "w-2 h-2 rounded-full bg-amber-400" : "w-2 h-2 rounded-full bg-rose-500";
+
+            document.getElementById('metricWind').textContent = `${data.windKmh} km/h ${data.windDir}`;
+            document.getElementById('metricHumidity').textContent = `${data.humidity}%`;
+            document.getElementById('metricUv').textContent = data.uv;
+            document.getElementById('metricVisibility').textContent = data.visibility;
+
+            document.getElementById('fullRadarCity').textContent = `${loc.countryFlag} ${loc.name}, ${loc.stateName || loc.countryName}`;
+            document.getElementById('fullRadarStats').textContent = `Temp: ${formatTemp(data.tempC, true)} • Wind: ${data.windKmh} km/h ${data.windDir} • Humidity: ${data.humidity}%`;
+        }
+
+        function renderHourlyForecast(data) {
+            const grid = document.getElementById('hourlyCardsGrid');
+            const svg = document.getElementById('hourlySparkline');
+
+            grid.innerHTML = data.hourly.map((slot, idx) => {
+                let primaryVal = formatTemp(slot.tempC);
+                let subLabel = `${slot.precip}% rain`;
+                if (state.hourlyMode === 'precip') {
+                    primaryVal = `${slot.precip}%`;
+                    subLabel = formatTemp(slot.tempC);
+                } else if (state.hourlyMode === 'wind') {
+                    primaryVal = `${slot.wind} km/h`;
+                    subLabel = formatTemp(slot.tempC);
+                }
+
+                return `
+                    <div class="glass-card-inner rounded-xl p-3 flex flex-col items-center justify-between text-center ${idx === 0 ? 'border-amber-400/45 bg-amber-500/10' : ''}">
+                        <span class="text-xs font-medium ${idx === 0 ? 'text-amber-300 font-semibold' : 'text-purple-200/75'}">${slot.time}</span>
+                        <div class="my-2">${getWeatherSVG(slot.icon, "w-8 h-8")}</div>
+                        <span class="text-sm font-bold text-white">${primaryVal}</span>
+                        <span class="text-[10px] text-purple-200/65 mt-0.5">${subLabel}</span>
+                    </div>
+                `;
+            }).join('');
+
+            const values = data.hourly.map(h => {
+                if (state.hourlyMode === 'precip') return h.precip;
+                if (state.hourlyMode === 'wind') return h.wind;
+                return getRawTemp(h.tempC);
+            });
+
+            const minVal = Math.min(...values);
+            const maxVal = Math.max(...values);
+            const range = maxVal - minVal || 1;
+
+            const width = 800;
+            const height = 48;
+            const padY = 8;
+
+            const points = values.map((val, i) => {
+                const x = (i / (values.length - 1)) * width;
+                const y = height - padY - ((val - minVal) / range) * (height - padY * 2);
+                return { x, y, val };
+            });
+
+            let pathD = `M ${points[0].x} ${points[0].y}`;
+            for (let i = 0; i < points.length - 1; i++) {
+                const cpX = (points[i].x + points[i + 1].x) / 2;
+                pathD += ` C ${cpX} ${points[i].y}, ${cpX} ${points[i + 1].y}, ${points[i + 1].x} ${points[i + 1].y}`;
+            }
+
+            const areaD = `${pathD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`;
+            const strokeColor = state.hourlyMode === 'precip' ? '#22d3ee' : state.hourlyMode === 'wind' ? '#34d399' : '#fb7185';
+
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            svg.innerHTML = `
+                <defs>
+                    <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="${strokeColor}" stop-opacity="0.38"/>
+                        <stop offset="100%" stop-color="${strokeColor}" stop-opacity="0.0"/>
+                    </linearGradient>
+                </defs>
+                <path d="${areaD}" fill="url(#sparkGrad)"/>
+                <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="2.5" stroke-linecap="round"/>
+                ${points.map(p => `
+                    <circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#180b33" stroke="${strokeColor}" stroke-width="2"/>
+                `).join('')}
+            `;
+        }
+
+        function renderWeeklyForecast(data) {
+            const container = document.getElementById('weeklyForecastList');
+            const weekMin = Math.min(...data.weekly.map(d => d.lowC));
+            const weekMax = Math.max(...data.weekly.map(d => d.highC));
+            const totalSpan = weekMax - weekMin || 1;
+
+            container.innerHTML = data.weekly.map((day, idx) => {
+                const leftPct = ((day.lowC - weekMin) / totalSpan) * 100;
+                const widthPct = Math.max(12, ((day.highC - day.lowC) / totalSpan) * 100);
+
+                return `
+                    <div class="glass-card-inner rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2">
+                        <div class="w-14 sm:w-16 font-medium text-xs sm:text-sm ${idx === 0 ? 'text-amber-300 font-bold' : 'text-slate-100'}">
+                            ${day.day}
+                        </div>
+
+                        <div class="flex items-center gap-2 w-28 sm:w-40">
+                            ${getWeatherSVG(day.icon, "w-6 h-6 shrink-0")}
+                            <span class="text-xs text-purple-200/75 truncate hidden sm:inline">${day.cond}</span>
+                            <span class="text-[10px] text-cyan-300 font-semibold ml-auto">${day.precip}</span>
+                        </div>
+
+                        <div class="flex items-center gap-2.5 flex-1 max-w-[210px]">
+                            <span class="text-xs font-medium text-purple-200/70 w-8 text-right">${formatTemp(day.lowC)}</span>
+                            <div class="flex-1 h-1.5 rounded-full bg-[#120826] relative overflow-hidden">
+                                <div class="h-full rounded-full bg-gradient-to-r from-fuchsia-400 via-amber-300 to-rose-500 absolute top-0"
+                                     style="left: ${leftPct}%; width: ${widthPct}%;"></div>
+                            </div>
+                            <span class="text-xs font-bold text-white w-8">${formatTemp(day.highC)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAqiAndAstro(data) {
+            document.getElementById('aqiBigNumber').textContent = data.aqi;
+            document.getElementById('aqiDescription').textContent = data.aqiDesc;
+            document.getElementById('pollutantPm25').textContent = data.pm25;
+            document.getElementById('pollutantPm10').textContent = data.pm10;
+            document.getElementById('pollutantO3').textContent = data.o3;
+
+            const badge = document.getElementById('aqiBadge');
+            badge.textContent = data.aqiLabel;
+            if (data.aqi <= 50) {
+                badge.className = "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-400/35";
+            } else if (data.aqi <= 100) {
+                badge.className = "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-400/35";
+            } else {
+                badge.className = "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-400/35";
+            }
+
+            const markerPct = Math.min(96, Math.max(4, (data.aqi / 300) * 100));
+            document.getElementById('aqiMarker').style.left = `${markerPct}%`;
+
+            document.getElementById('sunriseTime').textContent = data.sunrise;
+            document.getElementById('sunsetTime').textContent = data.sunset;
+            document.getElementById('daylightDuration').textContent = data.daylight;
+            document.getElementById('moonPhaseLabel').innerHTML = `<span>🌓</span> ${data.moonPhase}`;
+
+            const angle = Math.PI * (1 - data.sunProgress);
+            const sunX = 110 + 90 * Math.cos(angle);
+            const sunY = 80 - 70 * Math.sin(angle);
+            document.getElementById('sunOrb').setAttribute('transform', `translate(${sunX.toFixed(1)}, ${sunY.toFixed(1)})`);
+            document.getElementById('sunActiveArc').setAttribute('d', `M 20 80 A 90 70 0 0 1 ${sunX.toFixed(1)} ${sunY.toFixed(1)}`);
+        }
+
+        function renderCapitalsDirectory() {
+            const country = WORLD_HIERARCHY[state.countryCode];
+            document.getElementById('capitalsDirectoryTitle').innerHTML = `<span class="flag-badge text-xl mr-1.5">${country.flag}</span> ${country.name} — ${country.regionLabel} Capitals`;
+            document.getElementById('capitalsDirectorySubtitle').textContent = `Click any ${country.regionLabel.toLowerCase()} capital below to view its live weather & air quality dashboard.`;
+
+            const grid = document.getElementById('citiesGrid');
+            grid.innerHTML = Object.entries(country.states).map(([sCode, region]) => {
+                const cap = region.cities[0];
+                const isSelected = state.stateCode === sCode && state.selectedLocation.name === cap.name;
+                return `
+                    <div onclick="selectHierarchyLocation('${state.countryCode}', '${sCode}', 0); switchTab('dashboard');"
+                         class="glass-card-inner rounded-2xl p-4 cursor-pointer flex items-center justify-between ${isSelected ? 'border-amber-400/55 bg-amber-500/10' : ''}">
+                        <div class="min-w-0 pr-2">
+                            <div class="flex items-center gap-1.5">
+                                <span class="flag-badge text-base shrink-0">${country.flag}</span>
+                                <h3 class="text-sm sm:text-base font-bold text-white truncate">${cap.name}</h3>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 shrink-0">Capital</span>
+                            </div>
+                            <p class="text-xs text-purple-200/75 mt-0.5 truncate">${region.name}</p>
+                            <div class="text-[10px] text-purple-300/55 mt-2">
+                                ${cap.lat.toFixed(2)}°, ${cap.lon.toFixed(2)}°
+                            </div>
+                        </div>
+                        <div class="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-400/25 flex items-center justify-center text-amber-300 shrink-0">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAll() {
+            if (!state.weatherData) return;
+            renderRecentSearchChips();
+            renderQuickCityPills();
+            renderHeroSection(state.weatherData);
+            renderHourlyForecast(state.weatherData);
+            renderWeeklyForecast(state.weatherData);
+            renderAqiAndAstro(state.weatherData);
+            renderCapitalsDirectory();
+        }
+
+        function setUnit(unit) {
+            state.unit = unit;
+            const activeClass = "px-2.5 py-1 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow transition-all";
+            const inactiveClass = "px-2.5 py-1 rounded-lg text-xs font-semibold text-purple-200/70 hover:text-white transition-all";
+
+            document.getElementById('btnCelsius').className = unit === 'C' ? activeClass : inactiveClass;
+            document.getElementById('btnFahrenheit').className = unit === 'F' ? activeClass : inactiveClass;
+
+            document.getElementById('settingsBtnC').className = unit === 'C'
+                ? "px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-500 to-rose-500 text-white"
+                : "px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-200/70";
+            document.getElementById('settingsBtnF').className = unit === 'F'
+                ? "px-3 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-amber-500 to-rose-500 text-white"
+                : "px-3 py-1.5 rounded-lg text-xs font-semibold text-purple-200/70";
+
+            renderAll();
+        }
+
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.add('hidden'));
+            const target = document.getElementById(`view-${tabName}`);
+            if (target) target.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.className = "nav-btn active group flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500/25 to-rose-500/20 text-amber-300 border border-amber-400/35 transition-all";
+                } else {
+                    btn.className = "nav-btn group flex flex-col items-center justify-center w-14 h-14 rounded-xl text-purple-200/70 hover:text-white hover:bg-purple-900/50 transition-all";
+                }
+            });
+
+            if (tabName === 'radar') {
+                resizeRadarCanvases();
+            }
+        }
+
+        let radarTime = 0;
+        function resizeRadarCanvases() {
+            ['radarCanvas', 'fullRadarCanvas'].forEach(id => {
+                const canvas = document.getElementById(id);
+                if (!canvas || !canvas.parentElement) return;
+                const rect = canvas.parentElement.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                }
+            });
+        }
+
+        function drawRadarFrame(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || canvas.width === 0) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            const seed = state.weatherData ? state.weatherData.radarSeed : 2.5;
+
+            ctx.fillStyle = '#130829';
+            ctx.fillRect(0, 0, w, h);
+
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.12)';
+            ctx.lineWidth = 1.2;
+            for (let i = 0; i < 6; i++) {
+                ctx.beginPath();
+                for (let x = 0; x <= w; x += 20) {
+                    const y = (h * 0.2) + i * (h * 0.14) + Math.sin(x * 0.012 + seed + i) * 22;
+                    if (x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = 'rgba(216, 180, 254, 0.08)';
+            ctx.lineWidth = 1;
+            const step = 45;
+            for (let x = (radarTime * 4) % step; x < w; x += step) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+            for (let y = 0; y < h; y += step) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+            }
+
+            if (state.radarLayer === 'thermal') {
+                const blobs = [
+                    { x: w * 0.35 + Math.sin(radarTime + seed) * 25, y: h * 0.45 + Math.cos(radarTime) * 15, r: w * 0.38, c1: 'rgba(245, 158, 11, 0.55)', c2: 'rgba(244, 63, 94, 0.0)' },
+                    { x: w * 0.7 + Math.cos(radarTime * 0.8) * 20, y: h * 0.55, r: w * 0.32, c1: 'rgba(244, 63, 94, 0.45)', c2: 'rgba(168, 85, 247, 0.0)' },
+                    { x: w * 0.2, y: h * 0.8, r: w * 0.28, c1: 'rgba(168, 85, 247, 0.38)', c2: 'rgba(168, 85, 247, 0.0)' }
+                ];
+                blobs.forEach(b => {
+                    const grad = ctx.createRadialGradient(b.x, b.y, 10, b.x, b.y, b.r);
+                    grad.addColorStop(0, b.c1);
+                    grad.addColorStop(1, b.c2);
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, w, h);
+                });
+            } else if (state.radarLayer === 'precip') {
+                for (let i = 0; i < 5; i++) {
+                    const cx = ((w * 0.2 * i + radarTime * 35 + seed * 40) % (w + 120)) - 60;
+                    const cy = h * 0.3 + Math.sin(i * 2 + seed) * (h * 0.25);
+                    const r = 55 + (i % 3) * 25;
+                    const grad = ctx.createRadialGradient(cx, cy, 5, cx, cy, r);
+                    grad.addColorStop(0, 'rgba(34, 211, 238, 0.65)');
+                    grad.addColorStop(0.6, 'rgba(16, 185, 129, 0.35)');
+                    grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (state.radarLayer === 'wind') {
+                ctx.strokeStyle = 'rgba(251, 191, 36, 0.55)';
+                ctx.lineWidth = 1.6;
+                const cols = Math.floor(w / 48);
+                const rows = Math.floor(h / 48);
+                for (let r = 1; r < rows; r++) {
+                    for (let c = 1; c < cols; c++) {
+                        const gx = c * 48;
+                        const gy = r * 48;
+                        const angle = Math.sin(c * 0.5 + radarTime) * 0.6 + 0.4;
+                        const len = 16;
+                        const ex = gx + Math.cos(angle) * len;
+                        const ey = gy + Math.sin(angle) * len;
+
+                        ctx.beginPath();
+                        ctx.moveTo(gx, gy);
+                        ctx.lineTo(ex, ey);
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.arc(ex, ey, 2, 0, Math.PI * 2);
+                        ctx.fillStyle = '#fb7185';
+                        ctx.fill();
+                    }
+                }
+            }
+
+            const sweepAngle = (radarTime * 1.1) % (Math.PI * 2);
+            const cx = w / 2;
+            const cy = h / 2;
+            const maxR = Math.hypot(w, h) * 0.55;
+            const sweepGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, maxR);
+            sweepGrad.addColorStop(0, 'rgba(251, 191, 36, 0.14)');
+            sweepGrad.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, maxR, sweepAngle - 0.35, sweepAngle);
+            ctx.closePath();
+            ctx.fillStyle = sweepGrad;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function animateRadarLoop() {
+            radarTime += 0.025;
+            drawRadarFrame('radarCanvas');
+            if (state.activeTab === 'radar') {
+                drawRadarFrame('fullRadarCanvas');
+            }
+            requestAnimationFrame(animateRadarLoop);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+            });
+
+            document.getElementById('btnCelsius').addEventListener('click', () => setUnit('C'));
+            document.getElementById('btnFahrenheit').addEventListener('click', () => setUnit('F'));
+            document.getElementById('moodCycleBtn').addEventListener('click', cycleAccentMood);
+
+            document.querySelectorAll('.hourly-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    state.hourlyMode = tab.dataset.hourlyMode;
+                    document.querySelectorAll('.hourly-tab').forEach(t => {
+                        t.className = "hourly-tab px-2.5 py-1 rounded-md text-purple-200/70 hover:text-white font-medium transition-all";
+                    });
+                    tab.className = "hourly-tab active px-2.5 py-1 rounded-md bg-amber-500/25 text-amber-200 font-medium transition-all";
+                    if (state.weatherData) renderHourlyForecast(state.weatherData);
+                });
+            });
+
+            document.querySelectorAll('.radar-layer-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    state.radarLayer = btn.dataset.layer;
+                    document.querySelectorAll('.radar-layer-btn').forEach(b => {
+                        b.className = "radar-layer-btn px-2.5 py-1 rounded-lg font-medium text-purple-200/70 hover:text-white transition-all";
+                    });
+                    btn.className = "radar-layer-btn active px-2.5 py-1 rounded-lg font-medium bg-amber-500/25 text-amber-200 border border-amber-400/35 transition-all";
+
+                    const titleEl = document.getElementById('radarLegendTitle');
+                    const minEl = document.getElementById('radarLegendMin');
+                    const maxEl = document.getElementById('radarLegendMax');
+                    const barEl = document.getElementById('radarLegendBar');
+
+                    if (state.radarLayer === 'thermal') {
+                        titleEl.textContent = 'Thermal Gradient';
+                        minEl.textContent = formatTemp(15);
+                        maxEl.textContent = formatTemp(40);
+                        barEl.className = 'w-20 h-1.5 rounded-full bg-gradient-to-r from-fuchsia-500 via-amber-400 to-rose-500';
+                    } else if (state.radarLayer === 'precip') {
+                        titleEl.textContent = 'Doppler Rain Intensity';
+                        minEl.textContent = '0 mm';
+                        maxEl.textContent = '25 mm/h';
+                        barEl.className = 'w-20 h-1.5 rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-indigo-500';
+                    } else {
+                        titleEl.textContent = 'Wind Speed Vectors';
+                        minEl.textContent = '0 kt';
+                        maxEl.textContent = '45 kt';
+                        barEl.className = 'w-20 h-1.5 rounded-full bg-gradient-to-r from-amber-300 via-rose-400 to-fuchsia-500';
+                    }
+                });
+            });
+
+            document.getElementById('countrySelect').addEventListener('change', (e) => {
+                state.countryCode = e.target.value;
+                populateStateDropdown(state.countryCode, null);
+            });
+
+            document.getElementById('stateSelect').addEventListener('change', (e) => {
+                state.stateCode = e.target.value;
+                populateCityDropdown(state.countryCode, state.stateCode, true);
+            });
+
+            document.getElementById('citySelect').addEventListener('change', (e) => {
+                const cityIdx = parseInt(e.target.value, 10);
+                const country = WORLD_HIERARCHY[state.countryCode];
+                const region = country.states[state.stateCode];
+                const city = region.cities[cityIdx] || region.cities[0];
+                updateCapitalTag(!!city.isCapital);
+                loadLocation({
+                    name: city.name,
+                    stateName: region.name,
+                    countryName: country.name,
+                    countryFlag: country.flag,
+                    lat: city.lat,
+                    lon: city.lon,
+                    isCapital: !!city.isCapital
+                });
+            });
+
+            // Guaranteed Working Search Input, Dropdown, Enter Key & Search Button
+            const searchForm = document.getElementById('citySearchForm');
+            const searchInput = document.getElementById('citySearchInput');
+            const clearSearchBtn = document.getElementById('clearSearchBtn');
+            const dropdown = document.getElementById('searchDropdown');
+            let searchDebounce = null;
+            let latestSearchResults = [];
+
+            function searchLocalDatabases(q) {
+                const lowerQ = q.toLowerCase();
+                const results = [];
+
+                Object.entries(WORLD_HIERARCHY).forEach(([cCode, country]) => {
+                    const countryMatch = country.name.toLowerCase().includes(lowerQ);
+                    Object.entries(country.states).forEach(([sCode, region]) => {
+                        const stateMatch = region.name.toLowerCase().includes(lowerQ);
+                        region.cities.forEach((city, cIdx) => {
+                            if (
+                                city.name.toLowerCase().includes(lowerQ) ||
+                                stateMatch ||
+                                (countryMatch && city.isCapital)
+                            ) {
+                                results.push({
+                                    name: city.name,
+                                    stateName: region.name,
+                                    countryName: country.name,
+                                    countryFlag: country.flag,
+                                    lat: city.lat,
+                                    lon: city.lon,
+                                    isCapital: !!city.isCapital,
+                                    hierarchyRef: { cCode, sCode, cIdx },
+                                    exactScore: city.name.toLowerCase() === lowerQ ? 100 : city.name.toLowerCase().startsWith(lowerQ) ? 80 : 50
+                                });
+                            }
+                        });
+                    });
+                });
+
+                EXTRA_CITIES_DB.forEach(item => {
+                    if (
+                        item.name.toLowerCase().includes(lowerQ) ||
+                        item.stateName.toLowerCase().includes(lowerQ) ||
+                        item.countryName.toLowerCase().includes(lowerQ)
+                    ) {
+                        const already = results.some(r => r.name.toLowerCase() === item.name.toLowerCase() && r.countryName.toLowerCase() === item.countryName.toLowerCase());
+                        if (!already) {
+                            results.push({
+                                ...item,
+                                countryFlag: item.countryFlag || getFlagForCountry(item.countryName),
+                                exactScore: item.name.toLowerCase() === lowerQ ? 100 : item.name.toLowerCase().startsWith(lowerQ) ? 75 : 40
+                            });
+                        }
+                    }
+                });
+
+                return results.sort((a, b) => b.exactScore - a.exactScore);
+            }
+
+            async function resolveSearchCandidates(query) {
+                const q = query.trim();
+                if (!q) return [];
+
+                const localMatches = searchLocalDatabases(q);
+                let apiMatches = [];
+
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3200);
+                    const geoRes = await fetch(
+                        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=en&format=json`,
+                        { signal: controller.signal }
+                    );
+                    clearTimeout(timeoutId);
+
+                    if (geoRes.ok) {
+                        const geoJson = await geoRes.json();
+                        if (geoJson.results && geoJson.results.length > 0) {
+                            apiMatches = geoJson.results.map(r => ({
+                                name: r.name,
+                                stateName: r.admin1 || '',
+                                countryName: r.country || '',
+                                countryFlag: getFlagForCountry(r.country),
+                                lat: r.latitude,
+                                lon: r.longitude,
+                                isCapital: r.feature_code === 'PPLC' || r.feature_code === 'PPLA'
+                            }));
+                        }
+                    }
+                } catch (e) {
+                    // Seamless local atlas fallback
+                }
+
+                const combined = [...localMatches.slice(0, 6)];
+                apiMatches.forEach(am => {
+                    const exists = combined.some(
+                        cm => cm.name.toLowerCase() === am.name.toLowerCase() &&
+                              (cm.countryName.toLowerCase() === am.countryName.toLowerCase() || Math.abs(cm.lat - am.lat) < 0.2)
+                    );
+                    if (!exists) combined.push(am);
+                });
+
+                latestSearchResults = combined;
+                return combined;
+            }
+
+            function applyChosenLocation(chosen) {
+                dropdown.classList.add('hidden');
+                searchInput.value = chosen.name;
+                clearSearchBtn.classList.remove('hidden');
+
+                if (chosen.hierarchyRef) {
+                    selectHierarchyLocation(chosen.hierarchyRef.cCode, chosen.hierarchyRef.sCode, chosen.hierarchyRef.cIdx);
+                } else {
+                    updateCapitalTag(!!chosen.isCapital);
+                    loadLocation(chosen);
+                }
+            }
+
+            async function handleGlobalSearch(query) {
+                const q = query.trim();
+                if (q.length === 0) {
+                    clearSearchBtn.classList.add('hidden');
+                    dropdown.classList.add('hidden');
+                    latestSearchResults = [];
+                    return;
+                }
+                clearSearchBtn.classList.remove('hidden');
+
+                if (q.length < 1) {
+                    dropdown.classList.add('hidden');
+                    return;
+                }
+
+                const combined = await resolveSearchCandidates(q);
+
+                if (combined.length === 0) {
+                    dropdown.innerHTML = `<div class="px-4 py-3 text-xs text-purple-200/75">No matching place found for "${q}". Try another city/state name or press Search.</div>`;
+                } else {
+                    dropdown.innerHTML = combined.slice(0, 8).map((item, idx) => `
+                        <button type="button" data-search-idx="${idx}"
+                            class="search-result-btn w-full px-4 py-2.5 text-left hover:bg-purple-900/65 flex items-center justify-between border-b border-purple-400/10 last:border-none transition-colors cursor-pointer">
+                            <div>
+                                <div class="text-xs sm:text-sm font-semibold text-white flex items-center gap-1.5">
+                                    <span class="flag-badge text-sm">${item.countryFlag}</span>
+                                    <span>${item.name}</span>
+                                    ${item.isCapital ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30">Capital</span>' : ''}
+                                </div>
+                                <div class="text-[11px] text-purple-200/70">${[item.stateName, item.countryName].filter(Boolean).join(', ')}</div>
+                            </div>
+                            <span class="text-[10px] text-amber-300 font-medium">${item.lat.toFixed(1)}°, ${item.lon.toFixed(1)}°</span>
+                        </button>
+                    `).join('');
+
+                    dropdown.querySelectorAll('.search-result-btn').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const chosen = combined[parseInt(btn.dataset.searchIdx, 10)];
+                            if (chosen) applyChosenLocation(chosen);
+                        });
+                    });
+                }
+                dropdown.classList.remove('hidden');
+            }
+
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchDebounce);
+                searchDebounce = setTimeout(() => handleGlobalSearch(e.target.value), 120);
+            });
+
+            searchInput.addEventListener('focus', () => {
+                if (searchInput.value.trim().length >= 1) {
+                    handleGlobalSearch(searchInput.value);
+                }
+            });
+
+            clearSearchBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                clearSearchBtn.classList.add('hidden');
+                dropdown.classList.add('hidden');
+                latestSearchResults = [];
+                searchInput.focus();
+            });
+
+            searchForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const q = searchInput.value.trim();
+                if (!q) {
+                    showToast('Type a city, state, or country name to search');
+                    searchInput.focus();
+                    return;
+                }
+
+                const candidates = await resolveSearchCandidates(q);
+                if (candidates && candidates.length > 0) {
+                    applyChosenLocation(candidates[0]);
+                } else {
+                    showToast(`No place matched "${q}"`);
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchForm.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+
+            document.getElementById('refreshBtn').addEventListener('click', async () => {
+                const icon = document.getElementById('refreshIcon');
+                icon.classList.add('rotate-180');
+                setTimeout(() => icon.classList.remove('rotate-180'), 500);
+                await loadLocation(state.selectedLocation);
+            });
+
+            document.getElementById('autoSimToggle').addEventListener('change', (e) => {
+                state.autoSync = e.target.checked;
+                showToast(state.autoSync ? 'Auto-sync enabled (5m interval)' : 'Auto-sync paused');
+            });
+
+            setInterval(() => {
+                if (state.autoSync && state.selectedLocation) {
+                    loadLocation(state.selectedLocation);
+                }
+            }, 300000);
+
+            populateCountryDropdown();
+            populateStateDropdown('IN', 'MP');
+            renderRecentSearchChips();
+            resizeRadarCanvases();
+            window.addEventListener('resize', resizeRadarCanvases);
+            animateRadarLoop();
+        });
+    </script>
+</body>
+</html>
